@@ -23,15 +23,17 @@ app.use(
 app.use(express.json({ limit: '2mb' }))
 
 // Session configuration
+const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1'
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'studyhub-secret-key-change-in-production',
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction, // HTTPS only in production
       httpOnly: true,
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      sameSite: isProduction ? 'none' : 'lax', // Required for cross-origin in production
     },
   }),
 )
@@ -54,7 +56,17 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
+        console.log('Google OAuth profile received:', {
+          id: profile.id,
+          email: profile.emails?.[0]?.value,
+          name: profile.displayName,
+        })
+        
         const db = await getDB()
+        if (!db) {
+          throw new Error('Database connection not available')
+        }
+        
         const usersCollection = db.collection('users')
 
         let user = await usersCollection.findOne({ googleId: profile.id })
@@ -63,30 +75,33 @@ passport.use(
           // Create new user
           const newUser = {
             googleId: profile.id,
-            email: profile.emails[0].value,
-            name: profile.displayName,
-            picture: profile.photos[0].value,
+            email: profile.emails?.[0]?.value || '',
+            name: profile.displayName || '',
+            picture: profile.photos?.[0]?.value || '',
             createdAt: new Date(),
             lectures: [],
           }
           const result = await usersCollection.insertOne(newUser)
           user = { ...newUser, _id: result.insertedId }
+          console.log('New user created:', user._id)
         } else {
           // Update user info
           await usersCollection.updateOne(
             { googleId: profile.id },
             {
               $set: {
-                name: profile.displayName,
-                picture: profile.photos[0].value,
+                name: profile.displayName || user.name,
+                picture: profile.photos?.[0]?.value || user.picture,
                 lastLogin: new Date(),
               },
             },
           )
+          console.log('User updated:', user._id)
         }
 
         return done(null, user)
       } catch (err) {
+        console.error('Error in Google OAuth strategy:', err)
         return done(err, null)
       }
     },
@@ -100,10 +115,14 @@ passport.serializeUser((user, done) => {
 passport.deserializeUser(async (id, done) => {
   try {
     const db = await getDB()
+    if (!db) {
+      throw new Error('Database connection not available')
+    }
     const usersCollection = db.collection('users')
     const user = await usersCollection.findOne({ _id: new ObjectId(id) })
     done(null, user)
   } catch (err) {
+    console.error('Error deserializing user:', err)
     done(err, null)
   }
 })
@@ -151,8 +170,14 @@ app.get(
   '/api/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/login' }),
   (req, res) => {
-    // Redirect to frontend after successful login
-    res.redirect(process.env.FRONTEND_URL || 'http://localhost:5173')
+    try {
+      // Redirect to frontend after successful login
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+      res.redirect(frontendUrl)
+    } catch (err) {
+      console.error('Error in OAuth callback redirect:', err)
+      res.status(500).json({ error: 'Authentication successful but redirect failed' })
+    }
   },
 )
 
