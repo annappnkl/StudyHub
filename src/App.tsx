@@ -382,7 +382,7 @@ function ExerciseCard({
               type="text"
               value={followUpQuestion}
               onChange={(e) => setFollowUpQuestion(e.target.value)}
-              placeholder="e.g., explain how you would weld an aluminium bar with a copper bar"
+              placeholder="e.g., ask a follow up question about the exercise"
               className="follow-up-input"
               disabled={isLoadingFollowUp}
             />
