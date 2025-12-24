@@ -396,6 +396,7 @@ function App() {
     lectureId: string
     lectureTitle: string
   } | null>(null)
+  const [quizExpanded, setQuizExpanded] = useState<Record<string, boolean>>({})
 
   const activeLecture: Lecture | undefined = useMemo(
     () => (activeLectureId ? lectures[activeLectureId] : undefined),
@@ -1513,8 +1514,12 @@ function App() {
                         </div>
                       )}
 
-                      {/* Generate Exercise Button */}
-                      {section.hasExerciseButton && !section.generatedExercise && (
+                      {/* Generate Exercise Button - Always show for method, process, or concept */}
+                      {!section.generatedExercise && 
+                       (section.hasExerciseButton || 
+                        section.format === 'method' || 
+                        section.format === 'process' || 
+                        section.format === 'concept') && (
                         <div className="section-actions">
                           <button
                             type="button"
@@ -1564,13 +1569,30 @@ function App() {
               {/* Quiz Section - Now empty by default, exercises generated on-demand per section */}
               {activeSubchapter.exercises.length > 0 && (
                 <section className="exercises-section">
-                  <h3>Quiz</h3>
-                  <p className="exercise-hint">
-                    Test your understanding with these exercises. No explanations are
-                    provided—answer based on what you learned above.
-                  </p>
-                  {exerciseError && <p className="error-text">{exerciseError}</p>}
-                {activeSubchapter.exercises.map((exercise) => {
+                  <div className="quiz-header">
+                    <h3>Quiz</h3>
+                    <button
+                      type="button"
+                      className="quiz-toggle-button"
+                      onClick={() => {
+                        const subchapterKey = activeSubchapter.id
+                        setQuizExpanded((prev) => ({
+                          ...prev,
+                          [subchapterKey]: !prev[subchapterKey],
+                        }))
+                      }}
+                    >
+                      {quizExpanded[activeSubchapter.id] ? '▼ Collapse' : '▶ Expand'}
+                    </button>
+                  </div>
+                  {quizExpanded[activeSubchapter.id] && (
+                    <>
+                      <p className="exercise-hint">
+                        Test your understanding with these exercises. No explanations are
+                        provided—answer based on what you learned above.
+                      </p>
+                      {exerciseError && <p className="error-text">{exerciseError}</p>}
+                      {activeSubchapter.exercises.map((exercise) => {
                   const state = exerciseStates[exercise.id]
 
                   if (exercise.type === 'open-ended') {
@@ -1727,7 +1749,9 @@ function App() {
                     </div>
                   )
                 })}
-              </section>
+                    </>
+                  )}
+                </section>
               )}
             </>
           ) : (

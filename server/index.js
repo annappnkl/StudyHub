@@ -627,6 +627,8 @@ CRITICAL:
 - If content lists terms/concepts, create sections for EACH one
 - Only set hasExerciseButton: true for content that warrants practice
 - Keep all content factual and accurate
+- EXCLUDE general world knowledge: Do NOT create sections for overly basic, general knowledge that anyone would know (e.g., "math is a way of calculating numbers", "statistical calculations are a method to analyze data", "reading is a skill", "writing involves putting words on paper"). Only include content that is SPECIFIC to the topic and goal, and requires actual learning/instruction.
+- FILTER OUT: If a section would only contain general knowledge that doesn't add value to the learning goal, exclude it entirely.
 `
 
     const completion = await openai.chat.completions.create({
