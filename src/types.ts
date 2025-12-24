@@ -224,5 +224,6 @@ export interface ExerciseFollowUpRequest {
 
 export interface ExerciseFollowUpResponse {
   answer: string
+  intent?: 'scenario-extension' | 'factual-explanation'
 }
 

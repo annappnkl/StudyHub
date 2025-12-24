@@ -935,7 +935,7 @@ app.post('/api/exercise-follow-up', async (req, res) => {
 
   try {
     const system =
-      'You are an expert tutor. Answer clarifying questions about exercises in a helpful way that guides the student without giving away the solution. Be concise and focused.'
+      'You are an expert tutor. Analyze follow-up questions about exercises and respond appropriately based on the question\'s intention. You can either extend the scenario creatively or provide factual explanations.'
 
     const user = `
 Goal: ${goal}
@@ -951,15 +951,25 @@ ${exercise.options ? `Options: ${JSON.stringify(exercise.options, null, 2)}` : '
 Student's Follow-up Question:
 ${followUpQuestion}
 
-Provide a short, helpful answer (2-4 sentences) that:
-- Clarifies concepts or methods mentioned in the question
-- Guides the student toward understanding how to approach the exercise
-- Does NOT give away the solution or answer
-- Helps them think through the problem themselves
+ANALYZE the question's intention:
+
+1. SCENARIO EXTENSION: If the question asks for more details about the scenario/storyline (e.g., "what type of tech company?", "how many employees?", "what's the company's name?", "what industry?", "where is it located?"), then:
+   - Creatively extend the case study with new, realistic details
+   - Make the details consistent with the existing scenario
+   - The information doesn't need to be factual - it's a creative extension
+   - Keep it concise (2-3 sentences)
+   - Example: If asked "what type of tech company?", you might say "It's a mid-sized SaaS company specializing in project management software, with about 150 employees and annual revenue of $20 million."
+
+2. FACTUAL EXPLANATION: If the question asks for factual information about concepts, terms, or methods (e.g., "what is a tech company?", "what does SWOT mean?", "how does X work?"), then:
+   - Provide a factual, educational explanation
+   - Reference the learning section content when relevant
+   - Guide the student toward understanding without giving away the solution
+   - Keep it concise (2-4 sentences)
 
 Return JSON:
 {
-  "answer": "string (2-4 sentences, helpful guidance without revealing the solution)"
+  "answer": "string (2-4 sentences, either creative scenario extension or factual explanation based on question intent)",
+  "intent": "scenario-extension" | "factual-explanation"
 }
 `
 
@@ -970,7 +980,7 @@ Return JSON:
         { role: 'system', content: system },
         { role: 'user', content: user },
       ],
-      temperature: 0.3, // Low temperature for factual, helpful guidance
+      temperature: 0.6, // Higher temperature for creative scenario extensions, but still controlled
     })
 
     const content = completion.choices[0]?.message?.content
