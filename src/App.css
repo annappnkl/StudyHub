@@ -459,16 +459,14 @@ textarea:focus {
   text-overflow: ellipsis;
 }
 
-.subchapter-content,
-.exercises-section {
+.subchapter-content {
   padding: 0.9rem 1rem;
   border-radius: 1rem;
   border: 1px solid rgba(148, 163, 184, 0.35);
   background: rgba(15, 23, 42, 0.9);
 }
 
-.subchapter-content h3,
-.exercises-section h3 {
+.subchapter-content h3 {
   font-size: 0.95rem;
   margin-bottom: 0.4rem;
 }
@@ -480,11 +478,16 @@ textarea:focus {
 }
 
 .exercises-section {
-  flex: 1;
-  overflow: auto;
+  margin-top: 2rem;
+  padding: 2rem;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 0.75rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1.5rem;
+  min-height: auto;
+  max-height: none;
 }
 
 .quiz-header {
@@ -496,6 +499,9 @@ textarea:focus {
 
 .quiz-header h3 {
   margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #60a5fa;
 }
 
 .quiz-toggle-button {
@@ -518,38 +524,47 @@ textarea:focus {
 }
 
 .exercise-hint {
-  font-size: 0.8rem;
+  font-size: 1rem;
   color: #9ca3af;
-  margin-bottom: 0.35rem;
+  margin-bottom: 1rem;
+  line-height: 1.6;
 }
 
 .exercise-card {
-  padding: 0.8rem 0.85rem 0.9rem;
+  padding: 1.5rem;
   border-radius: 0.9rem;
   border: 1px solid rgba(148, 163, 184, 0.4);
   background: rgba(15, 23, 42, 0.95);
+  margin-bottom: 1.5rem;
 }
 
 .exercise-card h4 {
-  font-size: 0.9rem;
-  margin-bottom: 0.25rem;
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  color: #60a5fa;
+  font-weight: 600;
 }
 
 .exercise-prompt {
-  font-size: 0.85rem;
+  font-size: 1rem;
   color: #d1d5db;
-  margin-bottom: 0.35rem;
+  margin-bottom: 1rem;
+  line-height: 1.6;
 }
 
 .exercise-card textarea {
   width: 100%;
-  min-height: 80px;
-  margin-bottom: 0.45rem;
+  min-height: 120px;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  font-size: 1rem;
+  line-height: 1.5;
 }
 
 .exercise-feedback {
-  margin-top: 0.4rem;
-  font-size: 0.8rem;
+  margin-top: 1rem;
+  font-size: 1rem;
+  line-height: 1.6;
 }
 
 .exercise-feedback--correct {
@@ -563,8 +578,9 @@ textarea:focus {
 .mcq-options {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  margin-top: 0.3rem;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
 }
 
 .mcq-option {
@@ -572,13 +588,15 @@ textarea:focus {
   border: 1px solid rgba(148, 163, 184, 0.6);
   background: rgba(15, 23, 42, 0.95);
   color: #e5e7eb;
-  font-size: 0.85rem;
-  padding: 0.5rem 0.65rem;
+  font-size: 1rem;
+  padding: 1rem 1.25rem;
   display: flex;
   align-items: flex-start;
-  gap: 0.4rem;
+  gap: 0.75rem;
   cursor: pointer;
   text-align: left;
+  line-height: 1.5;
+  transition: all 0.2s;
 }
 
 .mcq-option--selected {
@@ -1126,9 +1144,12 @@ textarea:focus {
     padding: 1rem 0.85rem;
   }
 
-  .subchapter-content,
-  .exercises-section {
+  .subchapter-content {
     padding: 0.9rem 0.85rem;
+  }
+
+  .exercises-section {
+    padding: 1.5rem 1rem;
   }
 
   .learning-section {
