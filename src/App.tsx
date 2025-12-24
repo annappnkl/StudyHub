@@ -1596,12 +1596,13 @@ function App() {
                         </div>
                       )}
 
-                      {/* Generate Exercise Button - Always show for method, process, or concept */}
+                      {/* Generate Exercise Button - Always show for method, process, concept, or framework */}
                       {!section.generatedExercise && 
                        (section.hasExerciseButton || 
                         section.format === 'method' || 
                         section.format === 'process' || 
-                        section.format === 'concept') && (
+                        section.format === 'concept' ||
+                        section.format === 'framework') && (
                         <div className="section-actions">
                           <button
                             type="button"
@@ -1619,7 +1620,19 @@ function App() {
                       {/* Generated Exercise */}
                       {section.generatedExercise && activeLecture && activeSubchapter && (
                         <div className="generated-exercise">
-                          <h5>Exercise:</h5>
+                          <div className="generated-exercise-header">
+                            <h5>Exercise:</h5>
+                            <button
+                              type="button"
+                              className="regenerate-exercise-button"
+                              onClick={() => handleGenerateExercise(section.id)}
+                              disabled={generatingExerciseFor.has(section.id)}
+                            >
+                              {generatingExerciseFor.has(section.id)
+                                ? 'Regenerating...'
+                                : 'Regenerate Exercise'}
+                            </button>
+                          </div>
                           <ExerciseCard
                             exercise={section.generatedExercise}
                             learningSection={section}

@@ -1482,11 +1482,41 @@ textarea:focus {
   border-top: 1px solid #374151;
 }
 
+.generated-exercise-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
 .generated-exercise h5 {
   font-size: 1rem;
   font-weight: 600;
   color: #60a5fa;
-  margin-bottom: 1rem;
+  margin: 0;
+}
+
+.regenerate-exercise-button {
+  padding: 0.5rem 1rem;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 0.5rem;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.regenerate-exercise-button:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.2);
+  border-color: rgba(148, 163, 184, 0.5);
+  color: #cbd5e1;
+}
+
+.regenerate-exercise-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Gap Material */
