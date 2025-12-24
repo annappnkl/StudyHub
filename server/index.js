@@ -133,7 +133,11 @@ const requireAuth = (req, res, next) => {
 // Access code verification endpoint
 app.post('/api/verify-access-code', (req, res) => {
   const { code } = req.body
-  if (code === ACCESS_CODE) {
+  // Case-insensitive comparison with trimmed whitespace
+  const normalizedCode = code?.toString().trim().toUpperCase()
+  const normalizedAccessCode = ACCESS_CODE?.toString().trim().toUpperCase()
+  
+  if (normalizedCode && normalizedAccessCode && normalizedCode === normalizedAccessCode) {
     res.json({ valid: true })
   } else {
     res.status(401).json({ valid: false, error: 'Invalid access code' })
