@@ -2,7 +2,9 @@ import './LoginScreen.css'
 
 export function LoginScreen() {
   const handleGoogleLogin = () => {
-    const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787'
+    const API_BASE = import.meta.env.PROD 
+      ? '' // Use relative paths in production
+      : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787')
     window.location.href = `${API_BASE}/api/auth/google`
   }
 

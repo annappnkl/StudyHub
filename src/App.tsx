@@ -157,6 +157,35 @@ function App() {
     initApp()
   }, [])
 
+  // Re-check auth when returning from OAuth (e.g., after redirect)
+  useEffect(() => {
+    if (appState === 'app' || appState === 'loading') return
+
+    // Check auth when on login screen (might have just returned from OAuth)
+    const checkAuthAfterRedirect = async () => {
+      try {
+        const authStatus = await checkAuth()
+        if (authStatus.authenticated && authStatus.user) {
+          setUser(authStatus.user)
+          const savedLectures = await loadLectures()
+          const lecturesMap: LectureMap = {}
+          savedLectures.forEach((lecture) => {
+            lecturesMap[lecture.id] = lecture
+          })
+          setLectures(lecturesMap)
+          setAppState('app')
+        }
+      } catch (err) {
+        // Silently fail - user is not authenticated yet
+      }
+    }
+
+    // Small delay to ensure session is set after OAuth redirect
+    const timeout = setTimeout(checkAuthAfterRedirect, 500)
+    
+    return () => clearTimeout(timeout)
+  }, [appState])
+
   // Auto-save lectures when they change
   useEffect(() => {
     if (appState !== 'app' || !user) return
