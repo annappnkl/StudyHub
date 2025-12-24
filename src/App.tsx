@@ -936,6 +936,38 @@ function App() {
         </aside>
 
         <main className="content-panel">
+          {/* Mobile Chapter Selector */}
+          {activeLecture.chapters.length > 0 && (
+            <div className="mobile-chapter-selector">
+              <label className="label">
+                Chapter
+                <select
+                  value={activeChapter?.id || ''}
+                  onChange={(e) => {
+                    const selectedChapter = activeLecture?.chapters.find(
+                      (ch) => ch.id === e.target.value,
+                    )
+                    if (selectedChapter && selectedChapter.isUnlocked) {
+                      handleChapterClick(selectedChapter)
+                    }
+                  }}
+                >
+                  {activeLecture.chapters.map((chapter, index) => (
+                    <option
+                      key={chapter.id}
+                      value={chapter.id}
+                      disabled={!chapter.isUnlocked}
+                    >
+                      {chapter.isUnlocked
+                        ? `Chapter ${index + 1}: ${chapter.title}`
+                        : `Chapter ${index + 1}: ${chapter.title} (Locked)`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
+
           {activeChapter && activeSubchapter ? (
             <>
               <div className="subchapter-header">
