@@ -14,10 +14,13 @@ dotenv.config()
 const app = express()
 
 // CORS configuration
+const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: frontendUrl,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   }),
 )
 
@@ -27,25 +30,35 @@ app.use(express.json({ limit: '2mb' }))
 const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1'
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/studyhub'
 
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || 'studyhub-secret-key-change-in-production',
-    resave: false,
-    saveUninitialized: false,
-    store: MongoStore.create({
-      mongoUrl: MONGODB_URI,
-      dbName: 'studyhub',
-      collectionName: 'sessions',
-      ttl: 30 * 24 * 60 * 60, // 30 days in seconds
-    }),
-    cookie: {
-      secure: isProduction, // HTTPS only in production
-      httpOnly: true,
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      sameSite: isProduction ? 'none' : 'lax', // Required for cross-origin in production
-    },
+const sessionConfig = {
+  secret: process.env.SESSION_SECRET || 'studyhub-secret-key-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: MONGODB_URI,
+    dbName: 'studyhub',
+    collectionName: 'sessions',
+    ttl: 30 * 24 * 60 * 60, // 30 days in seconds
+    autoRemove: 'native',
   }),
-)
+  name: 'connect.sid', // Explicit session cookie name
+  cookie: {
+    secure: isProduction, // HTTPS only in production
+    httpOnly: true,
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    sameSite: isProduction ? 'none' : 'lax', // Required for cross-origin in production
+    path: '/', // Ensure cookie is available for all paths
+  },
+}
+
+console.log('Session config:', {
+  store: 'MongoDB',
+  secure: sessionConfig.cookie.secure,
+  sameSite: sessionConfig.cookie.sameSite,
+  httpOnly: sessionConfig.cookie.httpOnly,
+})
+
+app.use(session(sessionConfig))
 
 app.use(passport.initialize())
 app.use(passport.session())
@@ -183,12 +196,23 @@ app.get(
       console.log('OAuth callback successful, user authenticated:', req.isAuthenticated())
       console.log('OAuth callback - user:', req.user ? req.user.email : 'null')
       console.log('OAuth callback - session ID:', req.sessionID)
+      console.log('OAuth callback - session:', req.session ? 'exists' : 'null')
+      
+      // Ensure user is in session
+      if (req.user) {
+        req.session.userId = req.user._id.toString()
+        console.log('Set userId in session:', req.session.userId)
+      }
       
       // Explicitly save the session before redirect
       req.session.save((err) => {
         if (err) {
           console.error('Error saving session:', err)
+          return res.status(500).json({ error: 'Failed to save session' })
         }
+        
+        console.log('Session saved successfully, session ID:', req.sessionID)
+        console.log('Cookie will be set:', req.session.cookie)
         
         // Redirect to frontend after successful login
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
@@ -215,6 +239,13 @@ app.get('/api/auth/me', (req, res) => {
   console.log('Auth check - isAuthenticated:', req.isAuthenticated())
   console.log('Auth check - user:', req.user ? 'exists' : 'null')
   console.log('Auth check - session:', req.session ? 'exists' : 'null')
+  console.log('Auth check - session ID:', req.sessionID)
+  console.log('Auth check - cookies:', req.headers.cookie ? 'present' : 'missing')
+  console.log('Auth check - headers:', {
+    origin: req.headers.origin,
+    referer: req.headers.referer,
+    cookie: req.headers.cookie ? 'present' : 'missing',
+  })
   
   if (req.isAuthenticated()) {
     const { _id, googleId, email, name, picture } = req.user
