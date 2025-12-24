@@ -21,6 +21,8 @@ import type {
   GenerateGapMaterialResponse,
   ExplainSelectionRequest,
   ExplainSelectionResponse,
+  ExerciseFollowUpRequest,
+  ExerciseFollowUpResponse,
 } from './types'
 
 const API_BASE = import.meta.env.PROD 
@@ -152,6 +154,25 @@ export async function explainSelection(
   }
 
   return (await res.json()) as ExplainSelectionResponse
+}
+
+// Answer follow-up question about an exercise
+export async function answerExerciseFollowUp(
+  payload: ExerciseFollowUpRequest,
+): Promise<ExerciseFollowUpResponse> {
+  const res = await fetch(`${API_BASE}/api/exercise-follow-up`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    const message = await res.text()
+    throw new Error(`Failed to answer follow-up question: ${res.status} ${message}`)
+  }
+
+  return (await res.json()) as ExerciseFollowUpResponse
 }
 
 // Keep old functions for migration (will be removed later)

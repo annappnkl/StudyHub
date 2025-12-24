@@ -925,6 +925,65 @@ Return JSON:
   }
 })
 
+// New endpoint: Answer follow-up question about an exercise
+app.post('/api/exercise-follow-up', async (req, res) => {
+  const { exercise, followUpQuestion, learningSection, goal } = req.body || {}
+
+  if (!exercise || !followUpQuestion || !learningSection || !goal) {
+    return res.status(400).json({ error: 'Missing required fields' })
+  }
+
+  try {
+    const system =
+      'You are an expert tutor. Answer clarifying questions about exercises in a helpful way that guides the student without giving away the solution. Be concise and focused.'
+
+    const user = `
+Goal: ${goal}
+Learning Section: ${learningSection.title}
+Format: ${learningSection.format}
+Section Content: ${JSON.stringify(learningSection.content, null, 2)}
+
+Exercise:
+Prompt: ${exercise.prompt}
+${exercise.exampleScenario ? `Scenario: ${exercise.exampleScenario}` : ''}
+${exercise.options ? `Options: ${JSON.stringify(exercise.options, null, 2)}` : ''}
+
+Student's Follow-up Question:
+${followUpQuestion}
+
+Provide a short, helpful answer (2-4 sentences) that:
+- Clarifies concepts or methods mentioned in the question
+- Guides the student toward understanding how to approach the exercise
+- Does NOT give away the solution or answer
+- Helps them think through the problem themselves
+
+Return JSON:
+{
+  "answer": "string (2-4 sentences, helpful guidance without revealing the solution)"
+}
+`
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      temperature: 0.3, // Low temperature for factual, helpful guidance
+    })
+
+    const content = completion.choices[0]?.message?.content
+    if (!content) throw new Error('No content from OpenAI')
+
+    const parsed = JSON.parse(content)
+    return res.json(parsed)
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'Failed to answer follow-up question' })
+  }
+})
+
 // New endpoint: Explain selected text
 app.post('/api/explain-selection', async (req, res) => {
   const { selectedText, surroundingContext, learningSection, goal } = req.body || {}

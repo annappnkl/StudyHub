@@ -552,6 +552,77 @@ textarea:focus {
   line-height: 1.6;
 }
 
+.follow-up-question-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: rgba(56, 189, 248, 0.05);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 0.5rem;
+}
+
+.follow-up-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #9ca3af;
+  margin-bottom: 0.5rem;
+}
+
+.follow-up-input {
+  width: 100%;
+  padding: 0.75rem;
+  font-size: 0.95rem;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 0.5rem;
+  color: #e5e7eb;
+  margin-bottom: 0.75rem;
+}
+
+.follow-up-input:focus {
+  outline: none;
+  border-color: rgba(56, 189, 248, 0.5);
+  background: rgba(15, 23, 42, 0.95);
+}
+
+.follow-up-button {
+  padding: 0.5rem 1rem;
+  background: rgba(56, 189, 248, 0.2);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 0.5rem;
+  color: #60a5fa;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.follow-up-button:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.3);
+  border-color: rgba(56, 189, 248, 0.6);
+  color: #93c5fd;
+}
+
+.follow-up-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.follow-up-answer {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: rgba(251, 191, 36, 0.1);
+  border-left: 3px solid #fbbf24;
+  border-radius: 0.4rem;
+}
+
+.follow-up-answer p {
+  color: #e5e7eb;
+  line-height: 1.6;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
 .exercise-card textarea {
   width: 100%;
   min-height: 120px;

@@ -215,3 +215,14 @@ export interface ExplainSelectionResponse {
   explanation: string
 }
 
+export interface ExerciseFollowUpRequest {
+  exercise: Exercise
+  followUpQuestion: string
+  learningSection: LearningSection
+  goal: string
+}
+
+export interface ExerciseFollowUpResponse {
+  answer: string
+}
+

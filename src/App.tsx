@@ -6,6 +6,7 @@ import {
   generateSectionExercise,
   generateGapMaterial,
   explainSelection,
+  answerExerciseFollowUp,
   requestStudyPlan,
   checkAuth,
   logout as apiLogout,
@@ -24,6 +25,7 @@ import type {
   StudyPlanGenerationResponse,
   Subchapter,
   HighlightedText,
+  LearningSection,
 } from './types'
 
 type LectureMap = Record<string, Lecture>
@@ -212,6 +214,8 @@ function ExerciseCard({
   exercise,
   onKnowledgeGap,
   onEvaluate,
+  learningSection,
+  goal,
 }: {
   exercise: Exercise
   onKnowledgeGap: (gap: string) => void
@@ -221,6 +225,8 @@ function ExerciseCard({
     knowledgeGap?: string
     score?: number
   }>
+  learningSection: LearningSection
+  goal: string
 }) {
   const [userAnswer, setUserAnswer] = useState('')
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
@@ -231,6 +237,9 @@ function ExerciseCard({
     score?: number
   } | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [followUpQuestion, setFollowUpQuestion] = useState('')
+  const [followUpAnswer, setFollowUpAnswer] = useState<string | null>(null)
+  const [isLoadingFollowUp, setIsLoadingFollowUp] = useState(false)
 
   const handleSubmit = async () => {
     setIsLoading(true)
@@ -247,10 +256,63 @@ function ExerciseCard({
     }
   }
 
+  const handleFollowUpQuestion = async () => {
+    if (!followUpQuestion.trim()) return
+    
+    setIsLoadingFollowUp(true)
+    try {
+      const response = await answerExerciseFollowUp({
+        exercise,
+        followUpQuestion: followUpQuestion.trim(),
+        learningSection,
+        goal,
+      })
+      setFollowUpAnswer(response.answer)
+    } catch (err) {
+      console.error('Failed to answer follow-up question:', err)
+      setFollowUpAnswer('Sorry, I could not answer your question. Please try again.')
+    } finally {
+      setIsLoadingFollowUp(false)
+    }
+  }
+
   if (exercise.type === 'mcq') {
     return (
       <div className="exercise-card">
         <p className="exercise-prompt">{exercise.prompt}</p>
+        
+        {/* Follow-up Question Section */}
+        {!evaluation && (
+          <div className="follow-up-question-section">
+            <label className="follow-up-label">
+              Follow up question
+              <input
+                type="text"
+                value={followUpQuestion}
+                onChange={(e) => setFollowUpQuestion(e.target.value)}
+                placeholder="e.g., explain how you would weld an aluminium bar with a copper bar"
+                className="follow-up-input"
+                disabled={isLoadingFollowUp}
+              />
+            </label>
+            {followUpQuestion.trim() && (
+              <button
+                type="button"
+                className="follow-up-button"
+                onClick={handleFollowUpQuestion}
+                disabled={isLoadingFollowUp}
+              >
+                {isLoadingFollowUp ? 'Asking...' : 'Ask'}
+              </button>
+            )}
+            {followUpAnswer && (
+              <div className="follow-up-answer">
+                <p>{followUpAnswer}</p>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="mcq-options">
           {exercise.options?.map((option) => (
             <button
@@ -310,6 +372,39 @@ function ExerciseCard({
   return (
     <div className="exercise-card">
       <p className="exercise-prompt">{exercise.prompt}</p>
+      
+      {/* Follow-up Question Section */}
+      {!evaluation && (
+        <div className="follow-up-question-section">
+          <label className="follow-up-label">
+            Follow up question
+            <input
+              type="text"
+              value={followUpQuestion}
+              onChange={(e) => setFollowUpQuestion(e.target.value)}
+              placeholder="e.g., explain how you would weld an aluminium bar with a copper bar"
+              className="follow-up-input"
+              disabled={isLoadingFollowUp}
+            />
+          </label>
+          {followUpQuestion.trim() && (
+            <button
+              type="button"
+              className="follow-up-button"
+              onClick={handleFollowUpQuestion}
+              disabled={isLoadingFollowUp}
+            >
+              {isLoadingFollowUp ? 'Asking...' : 'Ask'}
+            </button>
+          )}
+          {followUpAnswer && (
+            <div className="follow-up-answer">
+              <p>{followUpAnswer}</p>
+            </div>
+          )}
+        </div>
+      )}
+
       <textarea
         rows={4}
         value={userAnswer}
@@ -1540,6 +1635,8 @@ function App() {
                           <h5>Exercise:</h5>
                           <ExerciseCard
                             exercise={section.generatedExercise}
+                            learningSection={section}
+                            goal={activeLecture.goal}
                             onKnowledgeGap={(gap) => handleGenerateGapMaterial(section.id, gap)}
                             onEvaluate={async (exercise, userAnswer) => {
                               const result = await evaluateExercise({
