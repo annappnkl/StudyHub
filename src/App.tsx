@@ -8,7 +8,14 @@ import {
   refinePracticeExercises,
   requestExercises,
   requestStudyPlan,
+  checkAuth,
+  logout as apiLogout,
+  saveLecture,
+  loadLectures,
+  type User,
 } from './api'
+import { AccessCodeScreen } from './components/AccessCodeScreen'
+import { LoginScreen } from './components/LoginScreen'
 import type {
   Chapter,
   Exercise,
@@ -83,7 +90,11 @@ interface ExerciseState {
   isLoading?: boolean
 }
 
+type AppState = 'access-code' | 'login' | 'loading' | 'app'
+
 function App() {
+  const [appState, setAppState] = useState<AppState>('loading')
+  const [user, setUser] = useState<User | null>(null)
   const [lectures, setLectures] = useState<LectureMap>({})
   const [activeLectureId, setActiveLectureId] = useState<string | null>(null)
   const [form, setForm] = useState<LectureFormState>({
@@ -93,6 +104,7 @@ function App() {
   })
   const [generationStage, setGenerationStage] = useState<GenerationStage>('idle')
   const [generationError, setGenerationError] = useState<string | null>(null)
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [exerciseStates, setExerciseStates] = useState<Record<string, ExerciseState>>(
     {},
@@ -119,8 +131,98 @@ function App() {
     [activeLecture],
   )
 
+  // Check authentication and load lectures on mount
+  useEffect(() => {
+    const initApp = async () => {
+      try {
+        const authStatus = await checkAuth()
+        if (authStatus.authenticated && authStatus.user) {
+          setUser(authStatus.user)
+          // Load saved lectures
+          const savedLectures = await loadLectures()
+          const lecturesMap: LectureMap = {}
+          savedLectures.forEach((lecture) => {
+            lecturesMap[lecture.id] = lecture
+          })
+          setLectures(lecturesMap)
+          setAppState('app')
+        } else {
+          setAppState('access-code')
+        }
+      } catch (err) {
+        console.error('Failed to check auth:', err)
+        setAppState('access-code')
+      }
+    }
+    initApp()
+  }, [])
+
+  // Auto-save lectures when they change
+  useEffect(() => {
+    if (appState !== 'app' || !user) return
+
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+
+    // Debounce save - wait 2 seconds after last change
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        const lecturesArray = Object.values(lectures)
+        for (const lecture of lecturesArray) {
+          await saveLecture(lecture)
+        }
+      } catch (err) {
+        console.error('Failed to auto-save:', err)
+      }
+    }, 2000)
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [lectures, appState, user])
+
+  const handleAccessCodeVerified = () => {
+    setAppState('login')
+  }
+
+  const handleLogout = async () => {
+    try {
+      await apiLogout()
+      setUser(null)
+      setLectures({})
+      setActiveLectureId(null)
+      setAppState('access-code')
+    } catch (err) {
+      console.error('Logout failed:', err)
+    }
+  }
+
   const hasLectures = Object.keys(lectures).length > 0
   const isInCreationState = !hasLectures || !activeLecture
+
+  // Render different screens based on app state
+  if (appState === 'loading') {
+    return (
+      <div className="app-shell">
+        <div className="loading-screen">
+          <span className="logo-mark">SH</span>
+          <p>Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (appState === 'access-code') {
+    return <AccessCodeScreen onCodeVerified={handleAccessCodeVerified} />
+  }
+
+  if (appState === 'login') {
+    return <LoginScreen />
+  }
 
   const handleCreateLecture = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -139,10 +241,17 @@ function App() {
       const plan = await requestStudyPlan(payload)
       const lecture = createLectureFromPlan(plan, payload)
 
-      setLectures((prev) => ({
-        ...prev,
-        [lecture.id]: lecture,
-      }))
+      setLectures((prev) => {
+        const updated = {
+          ...prev,
+          [lecture.id]: lecture,
+        }
+        // Auto-save the new lecture
+        if (user) {
+          saveLecture(lecture).catch(console.error)
+        }
+        return updated
+      })
       setActiveLectureId(lecture.id)
       setGenerationStage('idle')
     } catch (err) {
@@ -1071,7 +1180,28 @@ function App() {
           <span className="app-name">StudyHub</span>
         </div>
         <div className="app-header-right">
+          {user && (
+            <div className="user-info">
+              {user.picture && (
+                <img
+                  src={user.picture}
+                  alt={user.name}
+                  className="user-avatar"
+                />
+              )}
+              <span className="user-name">{user.name}</span>
+            </div>
+          )}
           {renderLectureSelector()}
+          {user && (
+            <button
+              className="logout-button"
+              onClick={handleLogout}
+              title="Logout"
+            >
+              Logout
+            </button>
+          )}
         </div>
       </header>
       <div className="app-body">

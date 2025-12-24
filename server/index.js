@@ -1,13 +1,115 @@
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import session from 'express-session'
+import passport from 'passport'
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
 import OpenAI from 'openai'
+import { ObjectId } from 'mongodb'
+import { connectDB, getDB } from './db.js'
 
 dotenv.config()
 
 const app = express()
-app.use(cors())
+
+// CORS configuration
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    credentials: true,
+  }),
+)
+
 app.use(express.json({ limit: '2mb' }))
+
+// Session configuration
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || 'studyhub-secret-key-change-in-production',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    },
+  }),
+)
+
+app.use(passport.initialize())
+app.use(passport.session())
+
+// Access code (set in environment variable)
+const ACCESS_CODE = process.env.ACCESS_CODE || 'STUDYHUB2024'
+
+// Google OAuth configuration
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+      callbackURL:
+        process.env.GOOGLE_CALLBACK_URL ||
+        `${process.env.API_BASE_URL || 'http://localhost:8787'}/api/auth/google/callback`,
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        const db = await getDB()
+        const usersCollection = db.collection('users')
+
+        let user = await usersCollection.findOne({ googleId: profile.id })
+
+        if (!user) {
+          // Create new user
+          const newUser = {
+            googleId: profile.id,
+            email: profile.emails[0].value,
+            name: profile.displayName,
+            picture: profile.photos[0].value,
+            createdAt: new Date(),
+            lectures: [],
+          }
+          const result = await usersCollection.insertOne(newUser)
+          user = { ...newUser, _id: result.insertedId }
+        } else {
+          // Update user info
+          await usersCollection.updateOne(
+            { googleId: profile.id },
+            {
+              $set: {
+                name: profile.displayName,
+                picture: profile.photos[0].value,
+                lastLogin: new Date(),
+              },
+            },
+          )
+        }
+
+        return done(null, user)
+      } catch (err) {
+        return done(err, null)
+      }
+    },
+  ),
+)
+
+passport.serializeUser((user, done) => {
+  done(null, user._id.toString())
+})
+
+passport.deserializeUser(async (id, done) => {
+  try {
+    const db = await getDB()
+    const usersCollection = db.collection('users')
+    const user = await usersCollection.findOne({ _id: new ObjectId(id) })
+    done(null, user)
+  } catch (err) {
+    done(err, null)
+  }
+})
+
+// Connect to database on startup
+connectDB().catch(console.error)
 
 const PORT = process.env.PORT || 8787
 const openaiApiKey = process.env.OPENAI_API_KEY
@@ -19,6 +121,140 @@ if (!openaiApiKey) {
 }
 
 const openai = new OpenAI({ apiKey: openaiApiKey })
+
+// Middleware to check authentication
+const requireAuth = (req, res, next) => {
+  if (req.isAuthenticated()) {
+    return next()
+  }
+  return res.status(401).json({ error: 'Unauthorized' })
+}
+
+// Access code verification endpoint
+app.post('/api/verify-access-code', (req, res) => {
+  const { code } = req.body
+  if (code === ACCESS_CODE) {
+    res.json({ valid: true })
+  } else {
+    res.status(401).json({ valid: false, error: 'Invalid access code' })
+  }
+})
+
+// Authentication routes
+app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }))
+
+app.get(
+  '/api/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  (req, res) => {
+    // Redirect to frontend after successful login
+    res.redirect(process.env.FRONTEND_URL || 'http://localhost:5173')
+  },
+)
+
+app.get('/api/auth/logout', (req, res) => {
+  req.logout((err) => {
+    if (err) {
+      return res.status(500).json({ error: 'Logout failed' })
+    }
+    res.json({ success: true })
+  })
+})
+
+app.get('/api/auth/me', (req, res) => {
+  if (req.isAuthenticated()) {
+    const { _id, googleId, email, name, picture } = req.user
+    res.json({
+      authenticated: true,
+      user: {
+        id: _id.toString(),
+        email,
+        name,
+        picture,
+      },
+    })
+  } else {
+    res.json({ authenticated: false })
+  }
+})
+
+// Save lecture endpoint
+app.post('/api/lectures/save', requireAuth, async (req, res) => {
+  try {
+    const { lecture } = req.body
+    const db = await getDB()
+    const usersCollection = db.collection('users')
+
+    const user = await usersCollection.findOne({ _id: req.user._id })
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    // Update or add lecture
+    const lectures = user.lectures || []
+    const existingIndex = lectures.findIndex((l) => l.id === lecture.id)
+
+    if (existingIndex >= 0) {
+      lectures[existingIndex] = { ...lecture, updatedAt: new Date() }
+    } else {
+      lectures.push({ ...lecture, createdAt: new Date(), updatedAt: new Date() })
+    }
+
+    await usersCollection.updateOne(
+      { _id: req.user._id },
+      { $set: { lectures, lastActivity: new Date() } },
+    )
+
+    res.json({ success: true })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to save lecture' })
+  }
+})
+
+// Load lectures endpoint
+app.get('/api/lectures', requireAuth, async (req, res) => {
+  try {
+    const db = await getDB()
+    const usersCollection = db.collection('users')
+
+    const user = await usersCollection.findOne({ _id: req.user._id })
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    res.json({ lectures: user.lectures || [] })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to load lectures' })
+  }
+})
+
+// Delete lecture endpoint
+app.delete('/api/lectures/:lectureId', requireAuth, async (req, res) => {
+  try {
+    const { lectureId } = req.params
+    const db = await getDB()
+    const usersCollection = db.collection('users')
+
+    const user = await usersCollection.findOne({ _id: req.user._id })
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    const lectures = (user.lectures || []).filter((l) => l.id !== lectureId)
+
+    await usersCollection.updateOne(
+      { _id: req.user._id },
+      { $set: { lectures, lastActivity: new Date() } },
+    )
+
+    res.json({ success: true })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to delete lecture' })
+  }
+})
 
 app.post('/api/plan', async (req, res) => {
   const { topic, goal, materialsSummary } = req.body || {}

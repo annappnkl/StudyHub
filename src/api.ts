@@ -136,3 +136,71 @@ export async function evaluatePracticeExercise(
   return (await res.json()) as PracticeExerciseEvaluationResponse
 }
 
+export interface User {
+  id: string
+  email: string
+  name: string
+  picture?: string
+}
+
+export interface AuthStatus {
+  authenticated: boolean
+  user?: User
+}
+
+export async function checkAuth(): Promise<AuthStatus> {
+  const res = await fetch(`${API_BASE}/api/auth/me`, {
+    credentials: 'include',
+  })
+
+  if (!res.ok) {
+    return { authenticated: false }
+  }
+
+  return (await res.json()) as AuthStatus
+}
+
+export async function logout(): Promise<void> {
+  await fetch(`${API_BASE}/api/auth/logout`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+}
+
+export async function saveLecture(lecture: import('./types').Lecture): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/lectures/save`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ lecture }),
+  })
+
+  if (!res.ok) {
+    throw new Error('Failed to save lecture')
+  }
+}
+
+export async function loadLectures(): Promise<import('./types').Lecture[]> {
+  const res = await fetch(`${API_BASE}/api/lectures`, {
+    credentials: 'include',
+  })
+
+  if (!res.ok) {
+    throw new Error('Failed to load lectures')
+  }
+
+  const data = await res.json()
+  return data.lectures || []
+}
+
+export async function deleteLecture(lectureId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/lectures/${lectureId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+
+  if (!res.ok) {
+    throw new Error('Failed to delete lecture')
+  }
+}
+
