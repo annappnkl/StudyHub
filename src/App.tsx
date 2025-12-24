@@ -43,7 +43,7 @@ function createLectureFromPlan(
   request: LectureGenerationRequest,
 ): Lecture {
   const now = new Date().toISOString()
-  const chapters: Chapter[] = plan.chapters.map((ch, idx) => {
+  const chapters: Chapter[] = plan.chapters.map((ch) => {
       const subchapters: Subchapter[] = ch.subchapters.map((s) => ({
       id: s.id,
       title: s.title,
@@ -58,7 +58,7 @@ function createLectureFromPlan(
       id: ch.id,
       title: ch.title,
       subchapters,
-      isUnlocked: idx === 0, // only first chapter unlocked initially
+      isUnlocked: true, // All chapters unlocked by default
     }
   })
 
@@ -483,6 +483,7 @@ function App() {
     explanation?: string
     position: { x: number; y: number }
   } | null>(null)
+  const [explainingSelection, setExplainingSelection] = useState(false)
   const [explanationPopup, setExplanationPopup] = useState<{
     text: string
     explanation: string
@@ -833,6 +834,7 @@ function App() {
     const section = activeSubchapter.learningSections.find((s) => s.id === tooltipState.sectionId)
     if (!section) return
 
+    setExplainingSelection(true)
     try {
       // Get surrounding context (parent element text)
       const response = await explainSelection({
@@ -889,6 +891,8 @@ function App() {
     } catch (err) {
       console.error('Failed to explain selection:', err)
       setTooltipState(null)
+    } finally {
+      setExplainingSelection(false)
     }
   }
 
@@ -1110,7 +1114,7 @@ function App() {
   }
 
   const handleChapterClick = (chapter: Chapter) => {
-    if (!chapter.isUnlocked || !activeLecture) return
+    if (!activeLecture) return
     setLectures((prev) => ({
       ...prev,
       [activeLecture.id]: {
@@ -1226,18 +1230,8 @@ function App() {
         return { ...ch, subchapters: updatedSubchapters }
       })
 
-      const nextLectures: Chapter[] = updatedChapters.map((ch, chIdx) => {
-        if (ch.id === activeChapter.id) return { ...ch, isUnlocked: true }
-        if (
-          chIdx > current.chapters.findIndex((c) => c.id === activeChapter.id)
-        ) {
-          const allPrevCompleted = updatedChapters[chIdx - 1].subchapters.every(
-            (s) => s.isCompleted,
-          )
-          return { ...ch, isUnlocked: ch.isUnlocked || allPrevCompleted }
-        }
-        return ch
-      })
+      // All chapters are now unlocked by default, so no need to update isUnlocked
+      const nextLectures: Chapter[] = updatedChapters
 
       return {
         ...prev,
@@ -1372,18 +1366,14 @@ function App() {
               return (
                 <button
                   key={chapter.id}
-                  className={`chapter-card ${
-                    !chapter.isUnlocked ? 'chapter-card--locked' : ''
-                  } ${isActive ? 'chapter-card--active' : ''}`}
+                  className={`chapter-card ${isActive ? 'chapter-card--active' : ''}`}
                   onClick={() => handleChapterClick(chapter)}
-                  disabled={!chapter.isUnlocked}
                   type="button"
                 >
                   <div className="chapter-card-header">
                     <span className="chapter-index">
                       Chapter {activeLecture.chapters.indexOf(chapter) + 1}
                     </span>
-                    {!chapter.isUnlocked && <span className="chip">Locked</span>}
                   </div>
                   <div className="chapter-card-title">{chapter.title}</div>
                   <div className="chapter-progress">
@@ -1415,7 +1405,7 @@ function App() {
                     const selectedChapter = activeLecture?.chapters.find(
                       (ch) => ch.id === e.target.value,
                     )
-                    if (selectedChapter && selectedChapter.isUnlocked) {
+                    if (selectedChapter) {
                       handleChapterClick(selectedChapter)
                     }
                   }}
@@ -1424,11 +1414,8 @@ function App() {
                     <option
                       key={chapter.id}
                       value={chapter.id}
-                      disabled={!chapter.isUnlocked}
                     >
-                      {chapter.isUnlocked
-                        ? `Chapter ${index + 1}: ${chapter.title}`
-                        : `Chapter ${index + 1}: ${chapter.title} (Locked)`}
+                      {`Chapter ${index + 1}: ${chapter.title}`}
                     </option>
                   ))}
                 </select>
@@ -1855,8 +1842,7 @@ function App() {
             <div className="empty-state">
               <h2>Select a chapter to get started</h2>
               <p>
-                Begin with the first unlocked chapter and work your way through the
-                subchapters.
+                Choose any chapter to begin learning.
               </p>
             </div>
           )}
@@ -1917,8 +1903,16 @@ function App() {
             type="button"
             onClick={handleExplainSelection}
             onBlur={handleCloseTooltip}
+            disabled={explainingSelection}
           >
-            Explain this
+            {explainingSelection ? (
+              <span className="loading-spinner-container">
+                <span className="loading-spinner"></span>
+                <span>Loading...</span>
+              </span>
+            ) : (
+              'Explain this'
+            )}
           </button>
         </div>
       )}
