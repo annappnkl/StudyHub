@@ -30,17 +30,49 @@ app.use(express.json({ limit: '2mb' }))
 const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1'
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/studyhub'
 
-const sessionConfig = {
-  secret: process.env.SESSION_SECRET || 'studyhub-secret-key-change-in-production',
-  resave: false,
-  saveUninitialized: false,
-  store: MongoStore.create({
+// Create MongoDB session store with error handling and connection options
+let mongoStore
+try {
+  mongoStore = MongoStore.create({
     mongoUrl: MONGODB_URI,
     dbName: 'studyhub',
     collectionName: 'sessions',
     ttl: 30 * 24 * 60 * 60, // 30 days in seconds
     autoRemove: 'native',
-  }),
+    touchAfter: 24 * 3600, // Lazy session update
+    stringify: false,
+    // Connection options for serverless
+    clientOptions: {
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+      socketTimeoutMS: 45000,
+      connectTimeoutMS: 5000,
+      maxPoolSize: 1, // Limit connections for serverless
+    },
+  })
+  
+  // Handle store errors gracefully
+  mongoStore.on('error', (error) => {
+    console.error('MongoDB session store error:', error)
+  })
+  
+  mongoStore.on('connected', () => {
+    console.log('MongoDB session store connected')
+  })
+  
+  mongoStore.on('disconnected', () => {
+    console.log('MongoDB session store disconnected')
+  })
+} catch (err) {
+  console.error('Failed to create MongoDB session store:', err)
+  console.warn('Falling back to memory store - sessions will not persist across serverless invocations')
+  // Will fall back to memory store if this fails
+}
+
+const sessionConfig = {
+  secret: process.env.SESSION_SECRET || 'studyhub-secret-key-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  store: mongoStore, // Will be undefined if creation failed, falls back to memory
   name: 'connect.sid', // Explicit session cookie name
   cookie: {
     secure: isProduction, // HTTPS only in production
@@ -52,7 +84,7 @@ const sessionConfig = {
 }
 
 console.log('Session config:', {
-  store: 'MongoDB',
+  store: mongoStore ? 'MongoDB' : 'Memory (fallback)',
   secure: sessionConfig.cookie.secure,
   sameSite: sessionConfig.cookie.sameSite,
   httpOnly: sessionConfig.cookie.httpOnly,
@@ -198,13 +230,12 @@ app.get(
       console.log('OAuth callback - session ID:', req.sessionID)
       console.log('OAuth callback - session:', req.session ? 'exists' : 'null')
       
-      // Ensure user is in session
-      if (req.user) {
-        req.session.userId = req.user._id.toString()
-        console.log('Set userId in session:', req.session.userId)
+      if (!req.isAuthenticated() || !req.user) {
+        console.error('User not authenticated after OAuth callback')
+        return res.redirect('/login?error=auth_failed')
       }
       
-      // Explicitly save the session before redirect
+      // Save the session (passport should have already set req.user)
       req.session.save((err) => {
         if (err) {
           console.error('Error saving session:', err)
@@ -212,7 +243,9 @@ app.get(
         }
         
         console.log('Session saved successfully, session ID:', req.sessionID)
-        console.log('Cookie will be set:', req.session.cookie)
+        console.log('Response headers before redirect:', {
+          'set-cookie': res.getHeader('set-cookie'),
+        })
         
         // Redirect to frontend after successful login
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
