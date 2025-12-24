@@ -560,6 +560,104 @@ CRITICAL REQUIREMENTS:
   }
 })
 
+// New combined endpoint - replaces learning-sections and learning-sections-enhancement
+app.post('/api/learning-sections-enhanced', async (req, res) => {
+  const { subchapterContent, goal, subchapterTitle } = req.body || {}
+
+  if (!subchapterContent || !goal || !subchapterTitle) {
+    return res.status(400).json({ error: 'Missing required fields' })
+  }
+
+  try {
+    const system =
+      'You are an expert instructional designer. Create accurate, factual learning sections with appropriate formatting. Focus on accuracy over creativity.'
+    const user = `
+Subchapter Title: ${subchapterTitle}
+Goal: ${goal}
+Introduction/Overview:
+${subchapterContent}
+
+Analyze the introduction and create learning sections. CRITICAL REQUIREMENTS:
+
+1. EXTRACT ALL CONCEPTS: Identify every key term, concept, method, or technique mentioned. If a term is listed (e.g., "SWOT analysis, Porter's Five Forces, 4Ps"), create separate sections for EACH one.
+
+2. CATEGORIZE each section as: "process", "framework", "method", "definition", "concept", or "comparison"
+   - "process": Step-by-step procedures (e.g., SWOT analysis, STAR method)
+   - "framework": Structured analytical tools (e.g., Porter's Five Forces, 4Ps)
+   - "method": Specific techniques or approaches
+   - "definition": Core concepts or terms - KEEP THESE SHORT (2-4 sentences only)
+   - "concept": Abstract ideas or theories
+   - "comparison": Comparing multiple approaches/concepts
+
+3. FORMAT content appropriately:
+   - For "definition": Keep explanation SHORT (2-4 sentences). No process/components needed.
+   - For "process"/"framework"/"method": Include "process" array with clear steps
+   - For "framework": Include "components" array with {name, description}
+   - For "comparison": Include "comparisonPoints" array with {aspect, details}
+   - Always include "explanation" (detailed for complex, short for definitions)
+   - Always include "example" (concrete example)
+
+4. EXERCISE RECOMMENDATION: For each section, determine if it warrants an exercise:
+   - "hasExerciseButton": true for complex concepts, methods, frameworks, processes
+   - "hasExerciseButton": false for simple definitions or basic concepts
+   - DO NOT generate exercises here - just indicate if one should be available
+
+Return JSON:
+{
+  "learningSections": [
+    {
+      "id": "string (unique)",
+      "title": "string (specific concept/term/method name)",
+      "format": "process" | "framework" | "method" | "definition" | "concept" | "comparison",
+      "content": {
+        "explanation": "string (2-4 sentences for definitions, 8-15 for complex concepts)",
+        "process": ["step 1", "step 2", ...] (only for process/framework/method),
+        "components": [{"name": "string", "description": "string"}] (only for framework),
+        "comparisonPoints": [{"aspect": "string", "details": "string"}] (only for comparison),
+        "example": "string (concrete example)"
+      },
+      "hasExerciseButton": boolean,
+      "practiceExercises": [] // Always empty array - exercises generated on-demand
+    }
+  ]
+}
+
+CRITICAL: 
+- Definitions must be SHORT (2-4 sentences)
+- If content lists terms/concepts, create sections for EACH one
+- Only set hasExerciseButton: true for content that warrants practice
+- Keep all content factual and accurate
+`
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      temperature: 0.3, // Lower temperature for accuracy
+    })
+
+    const content = completion.choices[0]?.message?.content
+    if (!content) throw new Error('No content from OpenAI')
+
+    const parsed = JSON.parse(content)
+    // Ensure practiceExercises is always an empty array
+    if (parsed.learningSections) {
+      parsed.learningSections = parsed.learningSections.map((section) => ({
+        ...section,
+        practiceExercises: [],
+      }))
+    }
+    return res.json(parsed)
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'Failed to generate learning sections' })
+  }
+})
+
+// Keep old endpoint for migration (will be removed later)
 app.post('/api/learning-sections', async (req, res) => {
   const { subchapterContent, goal, subchapterTitle } = req.body || {}
 
@@ -705,6 +803,177 @@ CRITICAL: Only include "process", "components", or "comparisonPoints" if the for
   }
 })
 
+// New endpoint: Generate exercise on-demand for a learning section
+app.post('/api/generate-section-exercise', async (req, res) => {
+  const { learningSection, previousSections, goal } = req.body || {}
+
+  if (!learningSection || !goal) {
+    return res.status(400).json({ error: 'Missing required fields' })
+  }
+
+  try {
+    const system =
+      'You are an expert tutor. Generate a single exercise that tests understanding of the learning section. The exercise must ONLY test material from the current section and previous sections shown above it.'
+
+    const previousSectionsText = previousSections && Array.isArray(previousSections) && previousSections.length > 0
+      ? '\n\nPrevious Sections (material already shown to user):\n' + previousSections.map((s, idx) => 
+          `${idx + 1}. ${s.title}\n${s.content.explanation || ''}${s.content.process ? '\nProcess: ' + s.content.process.join(', ') : ''}`
+        ).join('\n\n')
+      : ''
+
+    const user = `
+Goal: ${goal}
+${previousSectionsText}
+
+Current Learning Section:
+Title: ${learningSection.title}
+Format: ${learningSection.format}
+Content: ${JSON.stringify(learningSection.content, null, 2)}
+
+Generate ONE exercise that:
+1. Tests understanding of the current section
+2. ONLY uses material from the current section and previous sections (never ask about material not yet shown)
+3. Is appropriate for the content type:
+   - For process/framework/method: Prefer open-ended with scenario
+   - For definition/concept: Prefer MCQ or simple open-ended
+   - Decide based on what best tests understanding
+
+Return JSON:
+{
+  "exercise": {
+    "id": "string (unique)",
+    "type": "open-ended" | "mcq",
+    "prompt": "string (the question/prompt)",
+    "options": [{"id": "a"|"b"|"c"|"d", "text": "string", "isCorrect": boolean}] (only for mcq),
+    "solutionExplanation": "string (brief explanation)"
+  }
+}
+
+CRITICAL: The exercise must be answerable using ONLY the current section and previous sections. Never reference material not yet shown.
+`
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      temperature: 0.5, // Slightly creative for scenarios
+    })
+
+    const content = completion.choices[0]?.message?.content
+    if (!content) throw new Error('No content from OpenAI')
+
+    const parsed = JSON.parse(content)
+    return res.json(parsed)
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'Failed to generate exercise' })
+  }
+})
+
+// New endpoint: Generate material for knowledge gap
+app.post('/api/generate-gap-material', async (req, res) => {
+  const { knowledgeGap, learningSection, goal } = req.body || {}
+
+  if (!knowledgeGap || !learningSection || !goal) {
+    return res.status(400).json({ error: 'Missing required fields' })
+  }
+
+  try {
+    const system =
+      'You are an expert tutor. Provide a short, factual explanation that addresses a specific knowledge gap. Be accurate and concise.'
+
+    const user = `
+Goal: ${goal}
+Learning Section: ${learningSection.title}
+Format: ${learningSection.format}
+Section Content: ${JSON.stringify(learningSection.content, null, 2)}
+
+Knowledge Gap Identified:
+${knowledgeGap}
+
+Provide a short explanation (2-4 sentences) that directly addresses this knowledge gap. Be factual, accurate, and focused on what the user is missing.
+
+Return JSON:
+{
+  "material": "string (2-4 sentences addressing the gap)"
+}
+`
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      temperature: 0.2, // Very low for factual content
+    })
+
+    const content = completion.choices[0]?.message?.content
+    if (!content) throw new Error('No content from OpenAI')
+
+    const parsed = JSON.parse(content)
+    return res.json(parsed)
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'Failed to generate gap material' })
+  }
+})
+
+// New endpoint: Explain selected text
+app.post('/api/explain-selection', async (req, res) => {
+  const { selectedText, surroundingContext, learningSection, goal } = req.body || {}
+
+  if (!selectedText || !learningSection || !goal) {
+    return res.status(400).json({ error: 'Missing required fields' })
+  }
+
+  try {
+    const system =
+      'You are an expert tutor. Provide a brief, accurate explanation or definition for the selected text. Be concise and factual.'
+
+    const user = `
+Goal: ${goal}
+Learning Section: ${learningSection.title}
+Format: ${learningSection.format}
+${surroundingContext ? `Surrounding Context: ${surroundingContext}` : ''}
+
+Selected Text to Explain:
+"${selectedText}"
+
+Provide a brief explanation (1-3 sentences) that explains what this selected text means. If it's a term, define it. If it's a method, briefly explain it. If it's a concept, clarify it.
+
+Return JSON:
+{
+  "explanation": "string (1-3 sentences)"
+}
+`
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      temperature: 0.2, // Very low for factual content
+    })
+
+    const content = completion.choices[0]?.message?.content
+    if (!content) throw new Error('No content from OpenAI')
+
+    const parsed = JSON.parse(content)
+    return res.json(parsed)
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'Failed to explain selection' })
+  }
+})
+
+// Keep old endpoint for migration (will be removed later)
 app.post('/api/practice-exercise-refine', async (req, res) => {
   const { exercises, learningSection, goal } = req.body || {}
 

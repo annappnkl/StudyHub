@@ -37,7 +37,10 @@ export interface LearningSection {
   title: string
   format: LearningSectionFormat
   content: LearningSectionContent
-  practiceExercises: PracticeExercise[]
+  practiceExercises: PracticeExercise[] // Now empty by default, populated on-demand
+  hasExerciseButton: boolean // Whether to show "Generate Exercise" button
+  generatedExercise?: Exercise // Exercise generated on-demand
+  knowledgeGapMaterial?: string // Material generated for knowledge gaps
 }
 
 export interface Exercise {
@@ -48,13 +51,24 @@ export interface Exercise {
   solutionExplanation?: string
 }
 
+export interface HighlightedText {
+  id: string
+  sectionId: string
+  text: string
+  startOffset: number
+  endOffset: number
+  explanation?: string // Cached explanation
+}
+
 export interface Subchapter {
   id: string
   title: string
   content: string // Introduction/overview
   learningSections: LearningSection[] // Detailed learning materials
-  exercises: Exercise[] // Quiz section (no explanations shown)
+  exercises: Exercise[] // Quiz section (no explanations shown) - now on-demand
   isCompleted: boolean
+  highlightedTexts?: HighlightedText[] // Track highlighted sections
+  knowledgeGapMaterial?: string // Material generated for knowledge gaps (quiz level)
 }
 
 export interface Chapter {
@@ -160,4 +174,44 @@ export interface PracticeExerciseEvaluationResponse {
   knowledgeGap?: string
 }
 
+export interface LearningSectionsEnhancedRequest {
+  subchapterContent: string
+  goal: string
+  subchapterTitle: string
+}
+
+export interface LearningSectionsEnhancedResponse {
+  learningSections: LearningSection[]
+}
+
+export interface GenerateSectionExerciseRequest {
+  learningSection: LearningSection
+  previousSections: LearningSection[]
+  goal: string
+}
+
+export interface GenerateSectionExerciseResponse {
+  exercise: Exercise
+}
+
+export interface GenerateGapMaterialRequest {
+  knowledgeGap: string
+  learningSection: LearningSection
+  goal: string
+}
+
+export interface GenerateGapMaterialResponse {
+  material: string
+}
+
+export interface ExplainSelectionRequest {
+  selectedText: string
+  surroundingContext?: string
+  learningSection: LearningSection
+  goal: string
+}
+
+export interface ExplainSelectionResponse {
+  explanation: string
+}
 

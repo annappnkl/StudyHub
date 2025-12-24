@@ -1140,6 +1140,313 @@ textarea:focus {
   select {
     font-size: 16px; /* Prevents zoom on iOS */
   }
+
+  .generate-exercise-button,
+  .generate-gap-material-button {
+    font-size: 0.8rem;
+    padding: 0.5rem 1rem;
+    min-height: 44px; /* iOS touch target */
+  }
+
+  .explanation-popup {
+    padding: 1.25rem;
+    max-width: 90vw;
+  }
+
+  .confirmation-modal {
+    padding: 1.5rem;
+    max-width: 90vw;
+  }
+
+  .delete-lecture-button {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  .tooltip-button {
+    font-size: 0.8rem;
+  }
+}
+
+/* Generate Exercise Button */
+.generate-exercise-button {
+  margin-top: 1rem;
+  padding: 0.6rem 1.2rem;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 999px;
+  color: #60a5fa;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.generate-exercise-button:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: rgba(56, 189, 248, 0.6);
+  color: #93c5fd;
+}
+
+.generate-exercise-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Generate Gap Material Button */
+.generate-gap-material-button {
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-radius: 999px;
+  color: #fbbf24;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.generate-gap-material-button:hover {
+  background: rgba(251, 191, 36, 0.2);
+  border-color: rgba(251, 191, 36, 0.6);
+  color: #fcd34d;
+}
+
+/* Highlighted Text */
+.highlighted-text {
+  background: rgba(251, 191, 36, 0.2);
+  border-bottom: 2px solid rgba(251, 191, 36, 0.6);
+  cursor: pointer;
+  padding: 0.1rem 0.2rem;
+  border-radius: 0.2rem;
+  transition: all 0.2s;
+}
+
+.highlighted-text:hover {
+  background: rgba(251, 191, 36, 0.3);
+  border-bottom-color: rgba(251, 191, 36, 0.8);
+}
+
+/* Tooltip Button */
+.tooltip-button {
+  position: fixed;
+  z-index: 1000;
+}
+
+.tooltip-button button {
+  padding: 0.5rem 1rem;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 0.5rem;
+  color: #e5e7eb;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s;
+}
+
+.tooltip-button button:hover {
+  background: rgba(30, 64, 175, 0.9);
+  border-color: rgba(56, 189, 248, 0.6);
+  color: #93c5fd;
+}
+
+/* Explanation Popup */
+.explanation-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+}
+
+.explanation-popup {
+  background: radial-gradient(circle at top, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.95));
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  max-width: 600px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.explanation-popup-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5e7eb;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.explanation-popup-close:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fca5a5;
+}
+
+.explanation-popup h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #60a5fa;
+  margin-bottom: 0.5rem;
+  margin-right: 2rem;
+}
+
+.explanation-popup-text {
+  font-size: 0.9rem;
+  color: #9ca3af;
+  margin-bottom: 1rem;
+  font-style: italic;
+}
+
+.explanation-popup-content {
+  color: #d1d5db;
+  line-height: 1.7;
+  font-size: 0.95rem;
+}
+
+/* Generated Exercise */
+.generated-exercise {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #374151;
+}
+
+.generated-exercise h5 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #60a5fa;
+  margin-bottom: 1rem;
+}
+
+/* Gap Material */
+.gap-material {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: rgba(251, 191, 36, 0.1);
+  border-left: 3px solid #fbbf24;
+  border-radius: 0.4rem;
+}
+
+.gap-material h5 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fbbf24;
+  margin-bottom: 0.5rem;
+}
+
+.gap-material p {
+  color: #e5e7eb;
+  line-height: 1.6;
+  font-size: 0.9rem;
+}
+
+/* Section Actions */
+.section-actions {
+  margin-top: 1rem;
+}
+
+/* Delete Lecture Button */
+.delete-lecture-button {
+  margin-left: 0.5rem;
+  padding: 0.4rem 0.8rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 999px;
+  color: #fca5a5;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delete-lecture-button:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #f87171;
+}
+
+/* Confirmation Modal */
+.confirmation-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+}
+
+.confirmation-modal {
+  background: radial-gradient(circle at top, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.95));
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 1rem;
+  padding: 2rem;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.confirmation-modal h3 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #fca5a5;
+  margin-bottom: 1rem;
+}
+
+.confirmation-modal p {
+  color: #d1d5db;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
+.confirmation-modal-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.delete-lecture-confirm-button {
+  padding: 0.6rem 1.2rem;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: 999px;
+  color: #f87171;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delete-lecture-confirm-button:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.7);
+  color: #ef4444;
 }
 
 /* Touch-friendly improvements */

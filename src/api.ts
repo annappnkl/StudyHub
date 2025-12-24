@@ -13,6 +13,14 @@ import type {
   ExerciseGenerationRequest,
   LectureGenerationRequest,
   StudyPlanGenerationResponse,
+  LearningSectionsEnhancedRequest,
+  LearningSectionsEnhancedResponse,
+  GenerateSectionExerciseRequest,
+  GenerateSectionExerciseResponse,
+  GenerateGapMaterialRequest,
+  GenerateGapMaterialResponse,
+  ExplainSelectionRequest,
+  ExplainSelectionResponse,
 } from './types'
 
 const API_BASE = import.meta.env.PROD 
@@ -70,6 +78,83 @@ export async function evaluateExercise(
   return (await res.json()) as ExerciseEvaluationResponse
 }
 
+// New combined endpoint
+export async function requestLearningSectionsEnhanced(
+  payload: LearningSectionsEnhancedRequest,
+): Promise<LearningSectionsEnhancedResponse> {
+  const res = await fetch(`${API_BASE}/api/learning-sections-enhanced`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    const message = await res.text()
+    throw new Error(`Failed to generate learning sections: ${res.status} ${message}`)
+  }
+
+  return (await res.json()) as LearningSectionsEnhancedResponse
+}
+
+// New on-demand exercise generation
+export async function generateSectionExercise(
+  payload: GenerateSectionExerciseRequest,
+): Promise<GenerateSectionExerciseResponse> {
+  const res = await fetch(`${API_BASE}/api/generate-section-exercise`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    const message = await res.text()
+    throw new Error(`Failed to generate exercise: ${res.status} ${message}`)
+  }
+
+  return (await res.json()) as GenerateSectionExerciseResponse
+}
+
+// New knowledge gap material generation
+export async function generateGapMaterial(
+  payload: GenerateGapMaterialRequest,
+): Promise<GenerateGapMaterialResponse> {
+  const res = await fetch(`${API_BASE}/api/generate-gap-material`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    const message = await res.text()
+    throw new Error(`Failed to generate gap material: ${res.status} ${message}`)
+  }
+
+  return (await res.json()) as GenerateGapMaterialResponse
+}
+
+// New text selection explanation
+export async function explainSelection(
+  payload: ExplainSelectionRequest,
+): Promise<ExplainSelectionResponse> {
+  const res = await fetch(`${API_BASE}/api/explain-selection`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    const message = await res.text()
+    throw new Error(`Failed to explain selection: ${res.status} ${message}`)
+  }
+
+  return (await res.json()) as ExplainSelectionResponse
+}
+
+// Keep old functions for migration (will be removed later)
 export async function requestLearningSections(
   payload: LearningSectionsRequest,
 ): Promise<LearningSectionsResponse> {

@@ -3,15 +3,16 @@ import './App.css'
 import {
   evaluateExercise,
   evaluatePracticeExercise,
-  requestLearningSections,
-  enhanceLearningSections,
-  refinePracticeExercises,
-  requestExercises,
+  requestLearningSectionsEnhanced,
+  generateSectionExercise,
+  generateGapMaterial,
+  explainSelection,
   requestStudyPlan,
   checkAuth,
   logout as apiLogout,
   saveLecture,
   loadLectures,
+  deleteLecture as apiDeleteLecture,
   type User,
 } from './api'
 import { AccessCodeScreen } from './components/AccessCodeScreen'
@@ -23,6 +24,7 @@ import type {
   LectureGenerationRequest,
   StudyPlanGenerationResponse,
   Subchapter,
+  HighlightedText,
 } from './types'
 
 type LectureMap = Record<string, Lecture>
@@ -41,13 +43,14 @@ function createLectureFromPlan(
 ): Lecture {
   const now = new Date().toISOString()
   const chapters: Chapter[] = plan.chapters.map((ch, idx) => {
-    const subchapters: Subchapter[] = ch.subchapters.map((s) => ({
+      const subchapters: Subchapter[] = ch.subchapters.map((s) => ({
       id: s.id,
       title: s.title,
       content: s.content,
       learningSections: [], // will be populated lazily when user opens subchapter
-      exercises: [], // will be populated lazily when user opens subchapter
+      exercises: [], // will be populated lazily when user opens subchapter (on-demand)
       isCompleted: false,
+      highlightedTexts: [], // Track highlighted text
     }))
 
     return {
@@ -92,6 +95,269 @@ interface ExerciseState {
 
 type AppState = 'access-code' | 'login' | 'loading' | 'app'
 
+// Component to render text with highlighted sections
+function TextWithHighlights({
+  text,
+  sectionId,
+  highlightedTexts,
+  onHighlightClick,
+}: {
+  text: string
+  sectionId: string
+  highlightedTexts: HighlightedText[]
+  onHighlightClick: (text: string, explanation: string) => void
+}) {
+  const highlights = highlightedTexts.filter((ht) => ht.sectionId === sectionId)
+  
+  if (highlights.length === 0) {
+    return <span>{text}</span>
+  }
+
+  // Simple implementation: highlight matching text (case-insensitive for better matching)
+  const highlightMap = new Map<string, string>() // text -> explanation
+  
+  highlights.forEach((highlight) => {
+    if (highlight.explanation) {
+      highlightMap.set(highlight.text.toLowerCase(), highlight.explanation)
+    }
+  })
+
+  if (highlightMap.size === 0) {
+    return <span>{text}</span>
+  }
+
+  // Find and wrap highlighted text - use case-insensitive matching but preserve original case
+  const parts: Array<{ text: string; isHighlighted: boolean; explanation?: string }> = []
+  const textLower = text.toLowerCase()
+  
+  // Sort highlights by length (longest first) to avoid partial matches
+  const sortedHighlights = Array.from(highlightMap.entries()).sort((a, b) => b[0].length - a[0].length)
+  
+  const matchedRanges: Array<{ start: number; end: number; explanation: string }> = []
+  
+  sortedHighlights.forEach(([highlightTextLower, explanation]) => {
+    let searchIndex = 0
+    while (true) {
+      const index = textLower.indexOf(highlightTextLower, searchIndex)
+      if (index === -1) break
+      
+      // Check if this range overlaps with an existing match
+      const overlaps = matchedRanges.some(
+        (range) => !(index + highlightTextLower.length <= range.start || index >= range.end),
+      )
+      
+      if (!overlaps) {
+        matchedRanges.push({
+          start: index,
+          end: index + highlightTextLower.length,
+          explanation,
+        })
+      }
+      
+      searchIndex = index + 1
+    }
+  })
+  
+  // Sort ranges by start position
+  matchedRanges.sort((a, b) => a.start - b.start)
+  
+  // Build parts array
+  let lastIndex = 0
+  matchedRanges.forEach((range) => {
+    // Add text before this highlight
+    if (range.start > lastIndex) {
+      parts.push({ text: text.substring(lastIndex, range.start), isHighlighted: false })
+    }
+    // Add highlighted text (preserve original case from text)
+    parts.push({
+      text: text.substring(range.start, range.end),
+      isHighlighted: true,
+      explanation: range.explanation,
+    })
+    lastIndex = range.end
+  })
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push({ text: text.substring(lastIndex), isHighlighted: false })
+  }
+
+  // If no parts were created, just return the text
+  if (parts.length === 0) {
+    return <span>{text}</span>
+  }
+
+  return (
+    <span>
+      {parts.map((part, idx) =>
+        part.isHighlighted && part.explanation ? (
+          <span
+            key={idx}
+            className="highlighted-text"
+            onClick={() => {
+              onHighlightClick(part.text, part.explanation!)
+            }}
+          >
+            {part.text}
+          </span>
+        ) : (
+          <span key={idx}>{part.text}</span>
+        ),
+      )}
+    </span>
+  )
+}
+
+// Component to render an exercise card
+function ExerciseCard({
+  exercise,
+  onKnowledgeGap,
+  onEvaluate,
+}: {
+  exercise: Exercise
+  onKnowledgeGap: (gap: string) => void
+  onEvaluate: (exercise: Exercise, userAnswer: string) => Promise<{
+    isCorrect?: boolean
+    feedback: string
+    knowledgeGap?: string
+    score?: number
+  }>
+}) {
+  const [userAnswer, setUserAnswer] = useState('')
+  const [selectedOption, setSelectedOption] = useState<string | null>(null)
+  const [evaluation, setEvaluation] = useState<{
+    isCorrect?: boolean
+    feedback: string
+    knowledgeGap?: string
+    score?: number
+  } | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleSubmit = async () => {
+    setIsLoading(true)
+    try {
+      const result = await onEvaluate(
+        exercise,
+        exercise.type === 'mcq' ? selectedOption || '' : userAnswer,
+      )
+      setEvaluation(result)
+    } catch (err) {
+      console.error('Failed to evaluate exercise:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (exercise.type === 'mcq') {
+    return (
+      <div className="exercise-card">
+        <p className="exercise-prompt">{exercise.prompt}</p>
+        <div className="mcq-options">
+          {exercise.options?.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              className={`mcq-option ${
+                selectedOption === option.id ? 'mcq-option--selected' : ''
+              }`}
+              onClick={() => setSelectedOption(option.id)}
+              disabled={!!evaluation}
+            >
+              <span className="mcq-option-label">{option.id.toUpperCase()}.</span>
+              <span>{option.text}</span>
+            </button>
+          ))}
+        </div>
+        {!evaluation && (
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={handleSubmit}
+            disabled={isLoading || !selectedOption}
+          >
+            {isLoading ? 'Checking...' : 'Check Answer'}
+          </button>
+        )}
+        {evaluation && (
+          <div className="exercise-feedback">
+            <p className={evaluation.isCorrect ? 'exercise-feedback--correct' : 'exercise-feedback--incorrect'}>
+              {evaluation.feedback}
+            </p>
+            {evaluation.knowledgeGap && (
+              <>
+                <p className="practice-gap">
+                  <strong>Knowledge Gap:</strong> {evaluation.knowledgeGap}
+                </p>
+                <button
+                  type="button"
+                  className="generate-gap-material-button"
+                  onClick={() => onKnowledgeGap(evaluation.knowledgeGap!)}
+                >
+                  Provide Material for This Gap
+                </button>
+              </>
+            )}
+            {evaluation.score !== undefined && (
+              <p className="practice-score">
+                Score: {Math.round(evaluation.score)} / 100
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="exercise-card">
+      <p className="exercise-prompt">{exercise.prompt}</p>
+      <textarea
+        rows={4}
+        value={userAnswer}
+        onChange={(e) => setUserAnswer(e.target.value)}
+        placeholder="Type your answer here..."
+        disabled={!!evaluation}
+      />
+      {!evaluation && (
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={handleSubmit}
+          disabled={isLoading || !userAnswer.trim()}
+        >
+          {isLoading ? 'Checking...' : 'Check Answer'}
+        </button>
+      )}
+      {evaluation && (
+        <div className="exercise-feedback">
+          <p className={evaluation.isCorrect ? 'exercise-feedback--correct' : 'exercise-feedback--incorrect'}>
+            {evaluation.feedback}
+          </p>
+          {evaluation.knowledgeGap && (
+            <>
+              <p className="practice-gap">
+                <strong>Knowledge Gap:</strong> {evaluation.knowledgeGap}
+              </p>
+              <button
+                type="button"
+                className="generate-gap-material-button"
+                onClick={() => onKnowledgeGap(evaluation.knowledgeGap!)}
+              >
+                Provide Material for This Gap
+              </button>
+            </>
+          )}
+          {evaluation.score !== undefined && (
+            <p className="practice-score">
+              Score: {Math.round(evaluation.score)} / 100
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function App() {
   const [appState, setAppState] = useState<AppState>('loading')
   const [user, setUser] = useState<User | null>(null)
@@ -116,6 +382,24 @@ function App() {
   const [exerciseError, setExerciseError] = useState<string | null>(null)
   const loadingLearningSectionsRef = useRef<Set<string>>(new Set())
   const loadedSubchaptersRef = useRef<Set<string>>(new Set())
+  
+  // New state for on-demand features
+  const [generatingExerciseFor, setGeneratingExerciseFor] = useState<Set<string>>(new Set())
+  const [generatingGapMaterialFor, setGeneratingGapMaterialFor] = useState<Set<string>>(new Set())
+  const [tooltipState, setTooltipState] = useState<{
+    sectionId: string
+    text: string
+    explanation?: string
+    position: { x: number; y: number }
+  } | null>(null)
+  const [explanationPopup, setExplanationPopup] = useState<{
+    text: string
+    explanation: string
+  } | null>(null)
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{
+    lectureId: string
+    lectureTitle: string
+  } | null>(null)
 
   const activeLecture: Lecture | undefined = useMemo(
     () => (activeLectureId ? lectures[activeLectureId] : undefined),
@@ -283,6 +567,289 @@ function App() {
     }
   }
 
+  const handleGenerateExercise = async (sectionId: string) => {
+    if (!activeLecture || !activeChapter || !activeSubchapter) return
+    
+    const section = activeSubchapter.learningSections.find((s) => s.id === sectionId)
+    if (!section) return
+
+    setGeneratingExerciseFor((prev) => new Set(prev).add(sectionId))
+    
+    try {
+      // Get all previous sections (sections before this one)
+      const currentIndex = activeSubchapter.learningSections.findIndex((s) => s.id === sectionId)
+      const previousSections = activeSubchapter.learningSections.slice(0, currentIndex)
+
+      const response = await generateSectionExercise({
+        learningSection: section,
+        previousSections,
+        goal: activeLecture.goal,
+      })
+
+      setLectures((prev) => {
+        const current = prev[activeLecture.id]
+        if (!current) return prev
+
+        const chapters = current.chapters.map((ch) => {
+          if (ch.id !== activeChapter.id) return ch
+          return {
+            ...ch,
+            subchapters: ch.subchapters.map((s) =>
+              s.id === activeSubchapter.id
+                ? {
+                    ...s,
+                    learningSections: s.learningSections.map((ls) =>
+                      ls.id === sectionId
+                        ? { ...ls, generatedExercise: response.exercise }
+                        : ls,
+                    ),
+                  }
+                : s,
+            ),
+          }
+        })
+
+        return {
+          ...prev,
+          [current.id]: {
+            ...current,
+            chapters,
+          },
+        }
+      })
+    } catch (err) {
+      console.error('Failed to generate exercise:', err)
+      setExerciseError('Could not generate exercise. Try again.')
+    } finally {
+      setGeneratingExerciseFor((prev) => {
+        const next = new Set(prev)
+        next.delete(sectionId)
+        return next
+      })
+    }
+  }
+
+  const handleGenerateGapMaterial = async (sectionId: string, knowledgeGap: string) => {
+    if (!activeLecture || !activeChapter || !activeSubchapter) return
+    
+    const section = activeSubchapter.learningSections.find((s) => s.id === sectionId)
+    if (!section) return
+
+    setGeneratingGapMaterialFor((prev) => new Set(prev).add(sectionId))
+    
+    try {
+      const response = await generateGapMaterial({
+        knowledgeGap,
+        learningSection: section,
+        goal: activeLecture.goal,
+      })
+
+      setLectures((prev) => {
+        const current = prev[activeLecture.id]
+        if (!current) return prev
+
+        const chapters = current.chapters.map((ch) => {
+          if (ch.id !== activeChapter.id) return ch
+          return {
+            ...ch,
+            subchapters: ch.subchapters.map((s) =>
+              s.id === activeSubchapter.id
+                ? {
+                    ...s,
+                    learningSections: s.learningSections.map((ls) =>
+                      ls.id === sectionId
+                        ? { ...ls, knowledgeGapMaterial: response.material }
+                        : ls,
+                    ),
+                  }
+                : s,
+            ),
+          }
+        })
+
+        return {
+          ...prev,
+          [current.id]: {
+            ...current,
+            chapters,
+          },
+        }
+      })
+    } catch (err) {
+      console.error('Failed to generate gap material:', err)
+      setExerciseError('Could not generate material. Try again.')
+    } finally {
+      setGeneratingGapMaterialFor((prev) => {
+        const next = new Set(prev)
+        next.delete(sectionId)
+        return next
+      })
+    }
+  }
+
+  const handleTextSelection = (sectionId: string) => {
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) {
+      // Clear tooltip if selection is cleared
+      if (tooltipState) {
+        setTooltipState(null)
+      }
+      return
+    }
+
+    const selectedText = selection.toString().trim()
+    if (!selectedText || selectedText.length < 2) {
+      setTooltipState(null)
+      return
+    }
+
+    const range = selection.getRangeAt(0)
+    const rect = range.getBoundingClientRect()
+    
+    // Check if text is already highlighted
+    const subchapter = activeSubchapter
+    if (subchapter?.highlightedTexts) {
+      const existing = subchapter.highlightedTexts.find(
+        (ht) => ht.sectionId === sectionId && ht.text.toLowerCase() === selectedText.toLowerCase(),
+      )
+      if (existing && existing.explanation) {
+        // Re-open popup for existing highlight
+        setExplanationPopup({
+          text: selectedText,
+          explanation: existing.explanation,
+        })
+        selection.removeAllRanges()
+        setTooltipState(null)
+        return
+      }
+    }
+
+    // Show tooltip
+    setTooltipState({
+      sectionId,
+      text: selectedText,
+      position: {
+        x: rect.left + rect.width / 2,
+        y: rect.top - 10,
+      },
+    })
+  }
+
+  const handleExplainSelection = async () => {
+    if (!tooltipState || !activeLecture || !activeSubchapter) return
+
+    const section = activeSubchapter.learningSections.find((s) => s.id === tooltipState.sectionId)
+    if (!section) return
+
+    try {
+      // Get surrounding context (parent element text)
+      const response = await explainSelection({
+        selectedText: tooltipState.text,
+        learningSection: section,
+        goal: activeLecture.goal,
+      })
+
+      // Store highlighted text with explanation
+      const highlightId = `${tooltipState.sectionId}-${Date.now()}`
+      const newHighlight: HighlightedText = {
+        id: highlightId,
+        sectionId: tooltipState.sectionId,
+        text: tooltipState.text,
+        startOffset: 0, // Simplified - in production would calculate from DOM
+        endOffset: tooltipState.text.length,
+        explanation: response.explanation,
+      }
+
+      setLectures((prev) => {
+        const current = prev[activeLecture.id]
+        if (!current) return prev
+
+        const chapters = current.chapters.map((ch) => {
+          if (ch.id !== activeChapter?.id) return ch
+          return {
+            ...ch,
+            subchapters: ch.subchapters.map((s) =>
+              s.id === activeSubchapter.id
+                ? {
+                    ...s,
+                    highlightedTexts: [...(s.highlightedTexts || []), newHighlight],
+                  }
+                : s,
+            ),
+          }
+        })
+
+        return {
+          ...prev,
+          [current.id]: {
+            ...current,
+            chapters,
+          },
+        }
+      })
+
+      // Show popup
+      setExplanationPopup({
+        text: tooltipState.text,
+        explanation: response.explanation,
+      })
+      setTooltipState(null)
+    } catch (err) {
+      console.error('Failed to explain selection:', err)
+      setTooltipState(null)
+    }
+  }
+
+  const handleCloseTooltip = () => {
+    setTooltipState(null)
+  }
+
+  const handleCloseExplanationPopup = () => {
+    setExplanationPopup(null)
+    // Clear selection
+    window.getSelection()?.removeAllRanges()
+  }
+
+  const handleDeleteLecture = async (lectureId: string) => {
+    if (!deleteConfirmState || deleteConfirmState.lectureId !== lectureId) {
+      const lecture = lectures[lectureId]
+      if (lecture) {
+        setDeleteConfirmState({
+          lectureId,
+          lectureTitle: lecture.title,
+        })
+      }
+      return
+    }
+
+    try {
+      await apiDeleteLecture(lectureId)
+      
+      // Remove from state
+      setLectures((prev) => {
+        const next = { ...prev }
+        delete next[lectureId]
+        return next
+      })
+
+      // If deleted lecture was active, switch to another or creation state
+      if (activeLectureId === lectureId) {
+        const remainingLectures = Object.values(lectures).filter((l) => l.id !== lectureId)
+        if (remainingLectures.length > 0) {
+          setActiveLectureId(remainingLectures[0].id)
+        } else {
+          setActiveLectureId(null)
+        }
+      }
+
+      setDeleteConfirmState(null)
+    } catch (err) {
+      console.error('Failed to delete lecture:', err)
+      setExerciseError('Could not delete lecture. Try again.')
+      setDeleteConfirmState(null)
+    }
+  }
+
   useEffect(() => {
     const loadLearningContent = async () => {
       if (!activeLecture?.id || !activeChapter?.id || !activeSubchapter?.id) return
@@ -309,11 +876,11 @@ function App() {
       const currentSubchapter = currentChapter.subchapters.find((s) => s.id === activeSubchapter.id)
       if (!currentSubchapter) return
       
-      // Check if learning sections are already fully loaded (with format and practice exercises)
+      // Check if learning sections are already loaded
       const hasLearningSections = currentSubchapter.learningSections.length > 0
       const allSectionsEnhanced = hasLearningSections && 
         currentSubchapter.learningSections.every(
-          (section) => section.format && section.practiceExercises && section.practiceExercises.length > 0,
+          (section) => section.format && section.hasExerciseButton !== undefined,
         )
       
       // If already fully loaded, mark as loaded and return
@@ -328,64 +895,14 @@ function App() {
       setExerciseError(null)
       
       try {
-        let enhancedSections: typeof currentSubchapter.learningSections
+        // Use new combined endpoint
+        const response = await requestLearningSectionsEnhanced({
+          subchapterContent: currentSubchapter.content,
+          goal: currentLecture.goal,
+          subchapterTitle: currentSubchapter.title,
+        })
         
-        if (hasLearningSections && !allSectionsEnhanced) {
-          // Enhance existing sections
-          const enhancementResponse = await enhanceLearningSections({
-            learningSections: currentSubchapter.learningSections,
-            goal: currentLecture.goal,
-            subchapterTitle: currentSubchapter.title,
-          })
-          enhancedSections = enhancementResponse.learningSections
-        } else {
-          // Load sections first, then enhance them
-          const learningResponse = await requestLearningSections({
-            subchapterContent: currentSubchapter.content,
-            goal: currentLecture.goal,
-            subchapterTitle: currentSubchapter.title,
-          })
-
-          const enhancementResponse = await enhanceLearningSections({
-            learningSections: learningResponse.learningSections.map((s) => ({
-              id: s.id,
-              title: s.title,
-              content: {
-                explanation: typeof s.content === 'string' ? s.content : s.content.explanation || '',
-              },
-              format: 'concept' as const,
-              practiceExercises: [],
-            })),
-            goal: currentLecture.goal,
-            subchapterTitle: currentSubchapter.title,
-          })
-          enhancedSections = enhancementResponse.learningSections
-        }
-
-        // Refine practice exercises for each section to make them more specific and actionable
-        enhancedSections = await Promise.all(
-          enhancedSections.map(async (section) => {
-            if (!section.practiceExercises || section.practiceExercises.length === 0) {
-              return section
-            }
-
-            try {
-              const refinementResponse = await refinePracticeExercises({
-                exercises: section.practiceExercises,
-                learningSection: section,
-                goal: currentLecture.goal,
-              })
-
-              return {
-                ...section,
-                practiceExercises: refinementResponse.exercises,
-              }
-            } catch (err) {
-              console.error('Failed to refine practice exercises for section', section.id, err)
-              return section
-            }
-          }),
-        )
+        const enhancedSections = response.learningSections
 
         setLectures((prev) => {
           const current = prev[currentLecture.id]
@@ -430,62 +947,7 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLecture?.id, activeChapter?.id, activeSubchapter?.id])
 
-  useEffect(() => {
-    const loadExercisesAfterLearning = async () => {
-      if (!activeLecture || !activeChapter || !activeSubchapter) return
-      if (activeSubchapter.exercises.length > 0) return
-      if (activeSubchapter.learningSections.length === 0) return
-
-      setExerciseLoading(true)
-      setExerciseError(null)
-      try {
-        const exercises = await requestExercises({
-          lectureTitle: activeLecture.title,
-          chapterTitle: activeChapter.title,
-          subchapterTitle: activeSubchapter.title,
-          subchapterContent: activeSubchapter.content,
-          goal: activeLecture.goal,
-          learningSections: activeSubchapter.learningSections,
-        })
-
-        setLectures((prev) => {
-          const current = activeLecture
-          if (!current) return prev
-
-          const chapters = current.chapters.map((ch) => {
-            if (ch.id !== activeChapter.id) return ch
-            return {
-              ...ch,
-              subchapters: ch.subchapters.map((s) =>
-                s.id === activeSubchapter.id
-                  ? {
-                      ...s,
-                      exercises,
-                    }
-                  : s,
-              ),
-            }
-          })
-
-          return {
-            ...prev,
-            [current.id]: {
-              ...current,
-              chapters,
-            },
-          }
-        })
-      } catch (err) {
-        console.error(err)
-        setExerciseError('Could not load exercises. Try again.')
-      } finally {
-        setExerciseLoading(false)
-      }
-    }
-
-    loadExercisesAfterLearning()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLecture?.id, activeChapter?.id, activeSubchapter?.id, activeSubchapter?.learningSections.length, activeSubchapter?.exercises.length])
+  // Removed automatic quiz exercise loading - now on-demand
 
   const hasLectures = Object.keys(lectures).length > 0
   const isInCreationState = !hasLectures || !activeLecture
@@ -814,6 +1276,16 @@ function App() {
             ))}
           </select>
         </label>
+        {activeLectureId && (
+          <button
+            type="button"
+            className="delete-lecture-button"
+            onClick={() => handleDeleteLecture(activeLectureId)}
+            title="Delete lecture"
+          >
+            🗑️
+          </button>
+        )}
       </div>
     )
   }
@@ -1001,9 +1473,19 @@ function App() {
               </div>
 
               {/* Introduction Section */}
-              <section className="subchapter-content">
+              <section 
+                className="subchapter-content"
+                onMouseUp={() => handleTextSelection('introduction')}
+              >
                 <h3>Introduction</h3>
-                <p>{activeSubchapter.content}</p>
+                <TextWithHighlights
+                  text={activeSubchapter.content}
+                  sectionId="introduction"
+                  highlightedTexts={activeSubchapter.highlightedTexts || []}
+                  onHighlightClick={(text, explanation) => {
+                    setExplanationPopup({ text, explanation })
+                  }}
+                />
               </section>
 
               {/* Learning Sections */}
@@ -1021,19 +1503,41 @@ function App() {
                       <h4>{section.title}</h4>
                       <span className="format-badge">{section.format}</span>
 
-                      {/* Explanation */}
-                      <div className="section-explanation">
-                        <p>{section.content.explanation}</p>
+                      {/* Explanation with text highlighting */}
+                      <div 
+                        className="section-explanation"
+                        onMouseUp={() => handleTextSelection(section.id)}
+                      >
+                        <TextWithHighlights
+                          text={section.content.explanation}
+                          sectionId={section.id}
+                          highlightedTexts={activeSubchapter.highlightedTexts || []}
+                          onHighlightClick={(text, explanation) => {
+                            setExplanationPopup({ text, explanation })
+                          }}
+                        />
                       </div>
 
                       {/* Process (for process/framework/method) */}
                       {section.content.process &&
                         section.content.process.length > 0 && (
-                          <div className="section-process">
+                          <div 
+                            className="section-process"
+                            onMouseUp={() => handleTextSelection(section.id)}
+                          >
                             <h5>Process:</h5>
                             <ol className="process-steps">
                               {section.content.process.map((step, idx) => (
-                                <li key={idx}>{step}</li>
+                                <li key={idx}>
+                                  <TextWithHighlights
+                                    text={step}
+                                    sectionId={section.id}
+                                    highlightedTexts={activeSubchapter.highlightedTexts || []}
+                                    onHighlightClick={(text, explanation) => {
+                                      setExplanationPopup({ text, explanation })
+                                    }}
+                                  />
+                                </li>
                               ))}
                             </ol>
                           </div>
@@ -1042,12 +1546,23 @@ function App() {
                       {/* Components (for framework) */}
                       {section.content.components &&
                         section.content.components.length > 0 && (
-                          <div className="section-components">
+                          <div 
+                            className="section-components"
+                            onMouseUp={() => handleTextSelection(section.id)}
+                          >
                             <h5>Components:</h5>
                             <ul className="components-list">
                               {section.content.components.map((comp, idx) => (
                                 <li key={idx}>
-                                  <strong>{comp.name}:</strong> {comp.description}
+                                  <strong>{comp.name}:</strong>{' '}
+                                  <TextWithHighlights
+                                    text={comp.description}
+                                    sectionId={section.id}
+                                    highlightedTexts={activeSubchapter.highlightedTexts || []}
+                                    onHighlightClick={(text, explanation) => {
+                                      setExplanationPopup({ text, explanation })
+                                    }}
+                                  />
                                 </li>
                               ))}
                             </ul>
@@ -1057,12 +1572,23 @@ function App() {
                       {/* Comparison Points (for comparison) */}
                       {section.content.comparisonPoints &&
                         section.content.comparisonPoints.length > 0 && (
-                          <div className="section-comparison">
+                          <div 
+                            className="section-comparison"
+                            onMouseUp={() => handleTextSelection(section.id)}
+                          >
                             <h5>Comparison:</h5>
                             <ul className="comparison-list">
                               {section.content.comparisonPoints.map((point, idx) => (
                                 <li key={idx}>
-                                  <strong>{point.aspect}:</strong> {point.details}
+                                  <strong>{point.aspect}:</strong>{' '}
+                                  <TextWithHighlights
+                                    text={point.details}
+                                    sectionId={section.id}
+                                    highlightedTexts={activeSubchapter.highlightedTexts || []}
+                                    onHighlightClick={(text, explanation) => {
+                                      setExplanationPopup({ text, explanation })
+                                    }}
+                                  />
                                 </li>
                               ))}
                             </ul>
@@ -1071,94 +1597,79 @@ function App() {
 
                       {/* Example */}
                       {section.content.example && (
-                        <div className="section-example">
+                        <div 
+                          className="section-example"
+                          onMouseUp={() => handleTextSelection(section.id)}
+                        >
                           <h5>Example:</h5>
-                          <p className="example-text">{section.content.example}</p>
+                          <TextWithHighlights
+                            text={section.content.example}
+                            sectionId={section.id}
+                            highlightedTexts={activeSubchapter.highlightedTexts || []}
+                            onHighlightClick={(text, explanation) => {
+                              setExplanationPopup({ text, explanation })
+                            }}
+                          />
                         </div>
                       )}
 
-                      {/* Practice Exercises */}
-                      {section.practiceExercises &&
-                        section.practiceExercises.length > 0 && (
-                          <div className="practice-exercises">
-                            <h5>Practice:</h5>
-                            {section.practiceExercises.map((exercise) => {
-                              const practiceKey = `${section.id}-${exercise.id}`
-                              const practiceState = practiceExerciseStates[practiceKey]
-                              const userAnswer =
-                                exercise.userAnswer || practiceState?.userAnswer || ''
-                              const isLoading = practiceState?.isLoading || false
+                      {/* Generate Exercise Button */}
+                      {section.hasExerciseButton && !section.generatedExercise && (
+                        <div className="section-actions">
+                          <button
+                            type="button"
+                            className="generate-exercise-button"
+                            onClick={() => handleGenerateExercise(section.id)}
+                            disabled={generatingExerciseFor.has(section.id)}
+                          >
+                            {generatingExerciseFor.has(section.id)
+                              ? 'Generating...'
+                              : 'Generate Exercise'}
+                          </button>
+                        </div>
+                      )}
 
-                              return (
-                                <div key={exercise.id} className="practice-exercise">
-                                  <p className="practice-prompt">{exercise.prompt}</p>
-                                  {exercise.exampleScenario && (
-                                    <p className="practice-scenario">
-                                      <strong>Scenario:</strong> {exercise.exampleScenario}
-                                    </p>
-                                  )}
-                                  <textarea
-                                    rows={4}
-                                    value={userAnswer}
-                                    onChange={(e) =>
-                                      handlePracticeExerciseChange(
-                                        section.id,
-                                        exercise.id,
-                                        e.target.value,
-                                      )
-                                    }
-                                    placeholder="Type your answer here..."
-                                    disabled={!!exercise.evaluation}
-                                  />
-                                  {!exercise.evaluation && (
-                                    <button
-                                      type="button"
-                                      className="secondary-button"
-                                      onClick={() =>
-                                        handleSubmitPracticeExercise(section, exercise)
-                                      }
-                                      disabled={isLoading || !userAnswer.trim()}
-                                    >
-                                      {isLoading ? 'Checking...' : 'Check Answer'}
-                                    </button>
-                                  )}
-                                  {exercise.evaluation && (
-                                    <div className="practice-evaluation">
-                                      <p className="practice-feedback">
-                                        {exercise.evaluation.feedback}
-                                      </p>
-                                      <p className="practice-score">
-                                        Score: {Math.round(exercise.evaluation.score)} / 100
-                                      </p>
-                                      {exercise.evaluation.knowledgeGap && (
-                                        <p className="practice-gap">
-                                          <strong>Knowledge Gap:</strong>{' '}
-                                          {exercise.evaluation.knowledgeGap}
-                                        </p>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
+                      {/* Generated Exercise */}
+                      {section.generatedExercise && activeLecture && activeSubchapter && (
+                        <div className="generated-exercise">
+                          <h5>Exercise:</h5>
+                          <ExerciseCard
+                            exercise={section.generatedExercise}
+                            onKnowledgeGap={(gap) => handleGenerateGapMaterial(section.id, gap)}
+                            onEvaluate={async (exercise, userAnswer) => {
+                              const result = await evaluateExercise({
+                                exercise,
+                                userAnswer,
+                                goal: activeLecture.goal,
+                                subchapterContent: activeSubchapter.content,
+                              })
+                              return result
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {/* Knowledge Gap Material */}
+                      {section.knowledgeGapMaterial && (
+                        <div className="gap-material">
+                          <h5>Additional Material:</h5>
+                          <p>{section.knowledgeGapMaterial}</p>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </section>
               )}
 
-              {/* Quiz Section */}
-              <section className="exercises-section">
-                <h3>Quiz</h3>
-                <p className="exercise-hint">
-                  Test your understanding with these exercises. No explanations are
-                  provided—answer based on what you learned above.
-                </p>
-                {exerciseLoading && activeSubchapter.exercises.length === 0 && (
-                  <p className="exercise-hint">Loading quiz questions…</p>
-                )}
-                {exerciseError && <p className="error-text">{exerciseError}</p>}
+              {/* Quiz Section - Now empty by default, exercises generated on-demand per section */}
+              {activeSubchapter.exercises.length > 0 && (
+                <section className="exercises-section">
+                  <h3>Quiz</h3>
+                  <p className="exercise-hint">
+                    Test your understanding with these exercises. No explanations are
+                    provided—answer based on what you learned above.
+                  </p>
+                  {exerciseError && <p className="error-text">{exerciseError}</p>}
                 {activeSubchapter.exercises.map((exercise) => {
                   const state = exerciseStates[exercise.id]
 
@@ -1198,9 +1709,34 @@ function App() {
                           </p>
                         )}
                         {state?.knowledgeGap && (
-                          <p className="exercise-feedback">
-                            Knowledge gap: {state.knowledgeGap}
-                          </p>
+                          <>
+                            <p className="practice-gap">
+                              <strong>Knowledge Gap:</strong> {state.knowledgeGap}
+                            </p>
+                            {!activeSubchapter.knowledgeGapMaterial && (
+                              <button
+                                type="button"
+                                className="generate-gap-material-button"
+                              onClick={() => {
+                                // For quiz exercises, we'll create a generic learning section for the gap
+                                if (activeSubchapter && activeLecture && state.knowledgeGap) {
+                                  const gapSectionId = `gap-${exercise.id}`
+                                  handleGenerateGapMaterial(gapSectionId, state.knowledgeGap)
+                                }
+                              }}
+                                disabled={generatingGapMaterialFor.has(`gap-${exercise.id}`)}
+                              >
+                                {generatingGapMaterialFor.has(`gap-${exercise.id}`)
+                                  ? 'Generating...'
+                                  : 'Provide Material for This Gap'}
+                              </button>
+                            )}
+                            {activeSubchapter.knowledgeGapMaterial && (
+                              <div className="gap-material">
+                                <p>{activeSubchapter.knowledgeGapMaterial}</p>
+                              </div>
+                            )}
+                          </>
                         )}
                         {typeof state?.score === 'number' && (
                           <p className="exercise-feedback">
@@ -1254,9 +1790,34 @@ function App() {
                         </p>
                       )}
                       {state?.knowledgeGap && (
-                        <p className="exercise-feedback">
-                          Knowledge gap: {state.knowledgeGap}
-                        </p>
+                        <>
+                          <p className="practice-gap">
+                            <strong>Knowledge Gap:</strong> {state.knowledgeGap}
+                          </p>
+                          {!activeSubchapter.knowledgeGapMaterial && (
+                            <button
+                              type="button"
+                              className="generate-gap-material-button"
+                              onClick={() => {
+                                // For quiz exercises, we'll create a generic learning section for the gap
+                                if (activeSubchapter && activeLecture && state.knowledgeGap) {
+                                  const gapSectionId = `gap-${exercise.id}`
+                                  handleGenerateGapMaterial(gapSectionId, state.knowledgeGap)
+                                }
+                              }}
+                              disabled={generatingGapMaterialFor.has(`gap-${exercise.id}`)}
+                            >
+                              {generatingGapMaterialFor.has(`gap-${exercise.id}`)
+                                ? 'Generating...'
+                                : 'Provide Material for This Gap'}
+                            </button>
+                          )}
+                          {activeSubchapter.knowledgeGapMaterial && (
+                            <div className="gap-material">
+                              <p>{activeSubchapter.knowledgeGapMaterial}</p>
+                            </div>
+                          )}
+                        </>
                       )}
                       {typeof state?.score === 'number' && (
                         <p className="exercise-feedback">
@@ -1267,6 +1828,7 @@ function App() {
                   )
                 })}
               </section>
+              )}
             </>
           ) : (
             <div className="empty-state">
@@ -1317,6 +1879,77 @@ function App() {
       <div className="app-body">
         {isInCreationState ? renderCreationState() : renderRoadmap()}
       </div>
+
+      {/* Tooltip for text selection */}
+      {tooltipState && (
+        <div
+          className="tooltip-button"
+          style={{
+            position: 'fixed',
+            left: `${tooltipState.position.x}px`,
+            top: `${tooltipState.position.y}px`,
+            transform: 'translate(-50%, -100%)',
+            zIndex: 1000,
+          }}
+        >
+          <button
+            type="button"
+            onClick={handleExplainSelection}
+            onBlur={handleCloseTooltip}
+          >
+            Explain this
+          </button>
+        </div>
+      )}
+
+      {/* Explanation Popup */}
+      {explanationPopup && (
+        <div className="explanation-popup-overlay" onClick={handleCloseExplanationPopup}>
+          <div className="explanation-popup" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="explanation-popup-close"
+              onClick={handleCloseExplanationPopup}
+            >
+              ×
+            </button>
+            <h4>Explanation</h4>
+            <p className="explanation-popup-text">{explanationPopup.text}</p>
+            <div className="explanation-popup-content">
+              {explanationPopup.explanation}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmState && (
+        <div className="confirmation-modal-overlay" onClick={() => setDeleteConfirmState(null)}>
+          <div className="confirmation-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Delete Lecture</h3>
+            <p>
+              Are you sure you want to delete "{deleteConfirmState.lectureTitle}"? This action
+              cannot be undone.
+            </p>
+            <div className="confirmation-modal-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setDeleteConfirmState(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="delete-lecture-confirm-button"
+                onClick={() => handleDeleteLecture(deleteConfirmState.lectureId)}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
