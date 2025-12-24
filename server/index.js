@@ -8,6 +8,8 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
 import OpenAI from 'openai'
 import { ObjectId } from 'mongodb'
 import { connectDB, getDB } from './db.js'
+import cookieParser from 'cookie-parser'
+import { sign } from 'cookie-signature'
 
 dotenv.config()
 
@@ -25,6 +27,7 @@ app.use(
 )
 
 app.use(express.json({ limit: '2mb' }))
+app.use(cookieParser())
 
 // Session configuration with MongoDB store (required for serverless/Vercel)
 const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1'
@@ -235,23 +238,70 @@ app.get(
         return res.redirect('/login?error=auth_failed')
       }
       
-      // Save the session (passport should have already set req.user)
-      req.session.save((err) => {
-        if (err) {
-          console.error('Error saving session:', err)
-          return res.status(500).json({ error: 'Failed to save session' })
+      // Mark session as modified to ensure it's saved
+      req.session.touch()
+      
+      // Save the session and ensure cookie is set
+      await new Promise((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) {
+            console.error('Error saving session:', err)
+            return reject(err)
+          }
+          resolve()
+        })
+      })
+      
+      console.log('Session saved successfully, session ID:', req.sessionID)
+      
+      // Force express-session to set the cookie
+      // The issue is that redirects might bypass the session cookie setting
+      // We need to ensure the session cookie is in the response headers
+      
+      // Check if cookie is already set by express-session
+      let setCookieHeader = res.getHeader('set-cookie')
+      console.log('Cookie header before manual set:', setCookieHeader)
+      
+      // If cookie is not set, manually add it with proper signing
+      if (!setCookieHeader || (Array.isArray(setCookieHeader) && setCookieHeader.length === 0)) {
+        const cookieName = req.session.cookie.name || 'connect.sid'
+        const sessionSecret = process.env.SESSION_SECRET || 'studyhub-secret-key-change-in-production'
+        
+        // Sign the session ID the same way express-session does
+        const signedValue = 's:' + sign(req.sessionID, sessionSecret)
+        
+        // Build cookie string matching express-session's format
+        const cookieParts = [
+          `${cookieName}=${signedValue}`,
+          `Path=${req.session.cookie.path || '/'}`,
+          `Max-Age=${Math.floor((req.session.cookie.maxAge || 2592000000) / 1000)}`,
+        ]
+        
+        if (req.session.cookie.httpOnly !== false) {
+          cookieParts.push('HttpOnly')
         }
         
-        console.log('Session saved successfully, session ID:', req.sessionID)
-        console.log('Response headers before redirect:', {
-          'set-cookie': res.getHeader('set-cookie'),
-        })
+        if (req.session.cookie.secure) {
+          cookieParts.push('Secure')
+        }
         
-        // Redirect to frontend after successful login
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
-        console.log('Redirecting to:', frontendUrl)
-        res.redirect(frontendUrl)
+        const sameSite = req.session.cookie.sameSite || 'None'
+        cookieParts.push(`SameSite=${sameSite}`)
+        
+        const cookieString = cookieParts.join('; ')
+        res.setHeader('Set-Cookie', cookieString)
+        
+        console.log('Manually set signed cookie:', cookieString.substring(0, 100) + '...')
+      }
+      
+      console.log('Response headers after ensuring cookie:', {
+        'set-cookie': res.getHeader('set-cookie'),
       })
+      
+      // Redirect to frontend after successful login
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+      console.log('Redirecting to:', frontendUrl)
+      res.redirect(frontendUrl)
     } catch (err) {
       console.error('Error in OAuth callback redirect:', err)
       res.status(500).json({ error: 'Authentication successful but redirect failed' })
