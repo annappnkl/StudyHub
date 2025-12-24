@@ -135,8 +135,11 @@ function App() {
   useEffect(() => {
     const initApp = async () => {
       try {
+        console.log('Checking authentication on mount...')
         const authStatus = await checkAuth()
+        console.log('Auth status:', authStatus)
         if (authStatus.authenticated && authStatus.user) {
+          console.log('User authenticated:', authStatus.user.email)
           setUser(authStatus.user)
           // Load saved lectures
           const savedLectures = await loadLectures()
@@ -147,6 +150,7 @@ function App() {
           setLectures(lecturesMap)
           setAppState('app')
         } else {
+          console.log('User not authenticated, showing access code screen')
           setAppState('access-code')
         }
       } catch (err) {
@@ -164,8 +168,11 @@ function App() {
     // Check auth when on login screen (might have just returned from OAuth)
     const checkAuthAfterRedirect = async () => {
       try {
+        console.log('Re-checking auth after redirect, current state:', appState)
         const authStatus = await checkAuth()
+        console.log('Re-check auth status:', authStatus)
         if (authStatus.authenticated && authStatus.user) {
+          console.log('User authenticated after redirect:', authStatus.user.email)
           setUser(authStatus.user)
           const savedLectures = await loadLectures()
           const lecturesMap: LectureMap = {}
@@ -174,14 +181,17 @@ function App() {
           })
           setLectures(lecturesMap)
           setAppState('app')
+        } else {
+          console.log('Still not authenticated after redirect')
         }
       } catch (err) {
-        // Silently fail - user is not authenticated yet
+        console.error('Failed to re-check auth:', err)
       }
     }
 
-    // Small delay to ensure session is set after OAuth redirect
-    const timeout = setTimeout(checkAuthAfterRedirect, 500)
+    // Check immediately and also after a delay to ensure session is set after OAuth redirect
+    checkAuthAfterRedirect()
+    const timeout = setTimeout(checkAuthAfterRedirect, 1000)
     
     return () => clearTimeout(timeout)
   }, [appState])

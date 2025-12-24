@@ -27,13 +27,14 @@ const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'studyhub-secret-key-change-in-production',
-    resave: false,
-    saveUninitialized: false,
+    resave: true, // Changed to true for better compatibility
+    saveUninitialized: true, // Changed to true to ensure session is saved
     cookie: {
       secure: isProduction, // HTTPS only in production
       httpOnly: true,
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       sameSite: isProduction ? 'none' : 'lax', // Required for cross-origin in production
+      domain: isProduction ? undefined : undefined, // Let browser set domain automatically
     },
   }),
 )
@@ -169,11 +170,23 @@ app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile',
 app.get(
   '/api/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/login' }),
-  (req, res) => {
+  async (req, res) => {
     try {
-      // Redirect to frontend after successful login
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
-      res.redirect(frontendUrl)
+      console.log('OAuth callback successful, user authenticated:', req.isAuthenticated())
+      console.log('OAuth callback - user:', req.user ? req.user.email : 'null')
+      console.log('OAuth callback - session ID:', req.sessionID)
+      
+      // Explicitly save the session before redirect
+      req.session.save((err) => {
+        if (err) {
+          console.error('Error saving session:', err)
+        }
+        
+        // Redirect to frontend after successful login
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+        console.log('Redirecting to:', frontendUrl)
+        res.redirect(frontendUrl)
+      })
     } catch (err) {
       console.error('Error in OAuth callback redirect:', err)
       res.status(500).json({ error: 'Authentication successful but redirect failed' })
@@ -191,6 +204,10 @@ app.get('/api/auth/logout', (req, res) => {
 })
 
 app.get('/api/auth/me', (req, res) => {
+  console.log('Auth check - isAuthenticated:', req.isAuthenticated())
+  console.log('Auth check - user:', req.user ? 'exists' : 'null')
+  console.log('Auth check - session:', req.session ? 'exists' : 'null')
+  
   if (req.isAuthenticated()) {
     const { _id, googleId, email, name, picture } = req.user
     res.json({
