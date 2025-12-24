@@ -599,7 +599,13 @@ Analyze the introduction and create learning sections. CRITICAL REQUIREMENTS:
 
 4. EXERCISE RECOMMENDATION: For each section, determine if it warrants an exercise:
    - "hasExerciseButton": true for complex concepts, methods, frameworks, processes
-   - "hasExerciseButton": false for simple definitions or basic concepts
+   - "hasExerciseButton": true ALWAYS if the content contains ANY mathematical content:
+     * Mathematical calculations, formulas, equations
+     * Mathematical concepts, operations, or notation
+     * Words like "calculate", "formula", "equation", "solve", "derive", "compute", "evaluate"
+     * Mathematical symbols, numbers used in calculations, or step-by-step math procedures
+     * Even if it's a "definition" format, if it involves math, set hasExerciseButton: true
+   - "hasExerciseButton": false ONLY for simple definitions or basic concepts that have NO mathematical content
    - DO NOT generate exercises here - just indicate if one should be available
 
 Return JSON:
