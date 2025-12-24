@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import {
   evaluateExercise,
-  evaluatePracticeExercise,
   requestLearningSectionsEnhanced,
   generateSectionExercise,
   generateGapMaterial,
@@ -375,9 +374,6 @@ function App() {
   const [exerciseStates, setExerciseStates] = useState<Record<string, ExerciseState>>(
     {},
   )
-  const [practiceExerciseStates, setPracticeExerciseStates] = useState<
-    Record<string, { userAnswer: string; isLoading: boolean }>
-  >({})
   const [exerciseLoading, setExerciseLoading] = useState(false)
   const [exerciseError, setExerciseError] = useState<string | null>(null)
   const loadingLearningSectionsRef = useRef<Set<string>>(new Set())
@@ -1042,102 +1038,6 @@ function App() {
     setExerciseError(null)
   }
 
-  const handlePracticeExerciseChange = (
-    sectionId: string,
-    exerciseId: string,
-    value: string,
-  ) => {
-    setPracticeExerciseStates((prev) => ({
-      ...prev,
-      [`${sectionId}-${exerciseId}`]: {
-        userAnswer: value,
-        isLoading: false,
-      },
-    }))
-  }
-
-  const handleSubmitPracticeExercise = async (
-    section: import('./types').LearningSection,
-    exercise: import('./types').PracticeExercise,
-  ) => {
-    if (!activeLecture || !activeSubchapter) return
-
-    const key = `${section.id}-${exercise.id}`
-    const currentAnswer = practiceExerciseStates[key]?.userAnswer || ''
-    if (!currentAnswer.trim()) return
-
-    setPracticeExerciseStates((prev) => ({
-      ...prev,
-      [key]: { ...prev[key], isLoading: true },
-    }))
-
-    try {
-      const evaluation = await evaluatePracticeExercise({
-        exercise,
-        userAnswer: currentAnswer,
-        learningSection: section,
-        goal: activeLecture.goal,
-      })
-
-      setLectures((prev) => {
-        const current = prev[activeLecture.id]
-        if (!current) return prev
-
-        const chapters = current.chapters.map((ch) => {
-          if (ch.id !== activeChapter?.id) return ch
-          return {
-            ...ch,
-            subchapters: ch.subchapters.map((s) =>
-              s.id === activeSubchapter.id
-                ? {
-                    ...s,
-                    learningSections: s.learningSections.map((ls) =>
-                      ls.id === section.id
-                        ? {
-                            ...ls,
-                            practiceExercises: ls.practiceExercises.map((pe) =>
-                              pe.id === exercise.id
-                                ? {
-                                    ...pe,
-                                    userAnswer: currentAnswer,
-                                    evaluation: {
-                                      feedback: evaluation.feedback,
-                                      score: evaluation.score,
-                                      knowledgeGap: evaluation.knowledgeGap,
-                                    },
-                                  }
-                                : pe,
-                            ),
-                          }
-                        : ls,
-                    ),
-                  }
-                : s,
-            ),
-          }
-        })
-
-        return {
-          ...prev,
-          [current.id]: {
-            ...current,
-            chapters,
-          },
-        }
-      })
-
-      setPracticeExerciseStates((prev) => ({
-        ...prev,
-        [key]: { ...prev[key], isLoading: false },
-      }))
-    } catch (err) {
-      console.error(err)
-      setPracticeExerciseStates((prev) => ({
-        ...prev,
-        [key]: { ...prev[key], isLoading: false },
-      }))
-    }
-  }
 
   const handleExerciseAnswerChange = (exercise: Exercise, value: string) => {
     setExerciseStates((prev) => ({
