@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import session from 'express-session'
+import MongoStore from 'connect-mongo'
 import passport from 'passport'
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
 import OpenAI from 'openai'
@@ -22,19 +23,26 @@ app.use(
 
 app.use(express.json({ limit: '2mb' }))
 
-// Session configuration
+// Session configuration with MongoDB store (required for serverless/Vercel)
 const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1'
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/studyhub'
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'studyhub-secret-key-change-in-production',
-    resave: true, // Changed to true for better compatibility
-    saveUninitialized: true, // Changed to true to ensure session is saved
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: MONGODB_URI,
+      dbName: 'studyhub',
+      collectionName: 'sessions',
+      ttl: 30 * 24 * 60 * 60, // 30 days in seconds
+    }),
     cookie: {
       secure: isProduction, // HTTPS only in production
       httpOnly: true,
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       sameSite: isProduction ? 'none' : 'lax', // Required for cross-origin in production
-      domain: isProduction ? undefined : undefined, // Let browser set domain automatically
     },
   }),
 )
