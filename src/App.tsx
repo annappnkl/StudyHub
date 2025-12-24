@@ -283,99 +283,6 @@ function App() {
     }
   }
 
-  const hasLectures = Object.keys(lectures).length > 0
-  const isInCreationState = !hasLectures || !activeLecture
-
-  // Render different screens based on app state
-  if (appState === 'loading') {
-    return (
-      <div className="app-shell">
-        <div className="loading-screen">
-          <span className="logo-mark">SH</span>
-          <p>Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (appState === 'access-code') {
-    return <AccessCodeScreen onCodeVerified={handleAccessCodeVerified} />
-  }
-
-  if (appState === 'login') {
-    return <LoginScreen />
-  }
-
-  const handleCreateLecture = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!form.topic.trim() || !form.goal.trim()) return
-
-    setGenerationStage('generating')
-    setGenerationError(null)
-
-    try {
-      const payload: LectureGenerationRequest = {
-        topic: form.topic.trim(),
-        goal: form.goal.trim(),
-        materialsSummary: form.materialsSummary.trim() || undefined,
-      }
-
-      const plan = await requestStudyPlan(payload)
-      const lecture = createLectureFromPlan(plan, payload)
-
-      setLectures((prev) => {
-        const updated = {
-          ...prev,
-          [lecture.id]: lecture,
-        }
-        // Auto-save the new lecture
-        if (user) {
-          saveLecture(lecture).catch(console.error)
-        }
-        return updated
-      })
-      setActiveLectureId(lecture.id)
-      setGenerationStage('idle')
-    } catch (err) {
-      console.error(err)
-      setGenerationError('Could not generate lecture. Please try again.')
-      setGenerationStage('error')
-    }
-  }
-
-  const handleSelectLecture = (lectureId: string | 'new') => {
-    if (lectureId === 'new') {
-      setActiveLectureId(null)
-      return
-    }
-    setActiveLectureId(lectureId)
-  }
-
-  const handleChapterClick = (chapter: Chapter) => {
-    if (!chapter.isUnlocked || !activeLecture) return
-    setLectures((prev) => ({
-      ...prev,
-      [activeLecture.id]: {
-        ...activeLecture,
-        currentChapterId: chapter.id,
-        currentSubchapterId: chapter.subchapters[0]?.id,
-      },
-    }))
-  }
-
-  const handleSubchapterClick = (subchapter: Subchapter) => {
-    if (!activeLecture) return
-    setLectures((prev) => ({
-      ...prev,
-      [activeLecture.id]: {
-        ...activeLecture,
-        currentSubchapterId: subchapter.id,
-      },
-    }))
-    setExerciseStates((prev) => prev)
-    setExerciseError(null)
-  }
-
   useEffect(() => {
     const loadLearningContent = async () => {
       if (!activeLecture?.id || !activeChapter?.id || !activeSubchapter?.id) return
@@ -577,12 +484,101 @@ function App() {
     }
 
     loadExercisesAfterLearning()
-  }, [
-    activeLecture?.id,
-    activeChapter?.id,
-    activeSubchapter?.id,
-    activeSubchapter?.learningSections.length,
-  ])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLecture?.id, activeChapter?.id, activeSubchapter?.id, activeSubchapter?.learningSections.length, activeSubchapter?.exercises.length])
+
+  const hasLectures = Object.keys(lectures).length > 0
+  const isInCreationState = !hasLectures || !activeLecture
+
+  // Render different screens based on app state
+  if (appState === 'loading') {
+    return (
+      <div className="app-shell">
+        <div className="loading-screen">
+          <span className="logo-mark">SH</span>
+          <p>Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (appState === 'access-code') {
+    return <AccessCodeScreen onCodeVerified={handleAccessCodeVerified} />
+  }
+
+  if (appState === 'login') {
+    return <LoginScreen />
+  }
+
+  const handleCreateLecture = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.topic.trim() || !form.goal.trim()) return
+
+    setGenerationStage('generating')
+    setGenerationError(null)
+
+    try {
+      const payload: LectureGenerationRequest = {
+        topic: form.topic.trim(),
+        goal: form.goal.trim(),
+        materialsSummary: form.materialsSummary.trim() || undefined,
+      }
+
+      const plan = await requestStudyPlan(payload)
+      const lecture = createLectureFromPlan(plan, payload)
+
+      setLectures((prev) => {
+        const updated = {
+          ...prev,
+          [lecture.id]: lecture,
+        }
+        // Auto-save the new lecture
+        if (user) {
+          saveLecture(lecture).catch(console.error)
+        }
+        return updated
+      })
+      setActiveLectureId(lecture.id)
+      setGenerationStage('idle')
+    } catch (err) {
+      console.error(err)
+      setGenerationError('Could not generate lecture. Please try again.')
+      setGenerationStage('error')
+    }
+  }
+
+  const handleSelectLecture = (lectureId: string | 'new') => {
+    if (lectureId === 'new') {
+      setActiveLectureId(null)
+      return
+    }
+    setActiveLectureId(lectureId)
+  }
+
+  const handleChapterClick = (chapter: Chapter) => {
+    if (!chapter.isUnlocked || !activeLecture) return
+    setLectures((prev) => ({
+      ...prev,
+      [activeLecture.id]: {
+        ...activeLecture,
+        currentChapterId: chapter.id,
+        currentSubchapterId: chapter.subchapters[0]?.id,
+      },
+    }))
+  }
+
+  const handleSubchapterClick = (subchapter: Subchapter) => {
+    if (!activeLecture) return
+    setLectures((prev) => ({
+      ...prev,
+      [activeLecture.id]: {
+        ...activeLecture,
+        currentSubchapterId: subchapter.id,
+      },
+    }))
+    setExerciseStates((prev) => prev)
+    setExerciseError(null)
+  }
 
   const handlePracticeExerciseChange = (
     sectionId: string,
