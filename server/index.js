@@ -715,7 +715,13 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true })
 })
 
-app.listen(PORT, () => {
-  console.log(`StudyHub API listening on http://localhost:${PORT}`)
-})
+// Export for Vercel serverless
+export default app
+
+// Only start server if not in Vercel environment
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`StudyHub API listening on http://localhost:${PORT}`)
+  })
+}
 

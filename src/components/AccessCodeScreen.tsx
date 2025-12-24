@@ -16,7 +16,9 @@ export function AccessCodeScreen({ onCodeVerified }: AccessCodeScreenProps) {
     setLoading(true)
 
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787'
+      const API_BASE = import.meta.env.PROD 
+        ? '' // Use relative paths in production (same domain on Vercel)
+        : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787')
       const res = await fetch(`${API_BASE}/api/verify-access-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

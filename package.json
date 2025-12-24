@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "validate": "node scripts/validate-env.js",
-    "setup:check": "node scripts/validate-env.js"
+    "setup:check": "node scripts/validate-env.js",
+    "vercel-build": "npm run build"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

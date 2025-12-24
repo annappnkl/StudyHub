@@ -57,6 +57,7 @@ Open your `.env` file and add:
 GOOGLE_CLIENT_ID=your-client-id-here.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret-here
 GOOGLE_CALLBACK_URL=http://localhost:8787/api/auth/google/callback
+SESSION_SECRET=Bm0XLl05nvvThQdpTLK37xBlVz1JkFkp4zFCTcGI89Q=
 ```
 
 Replace `your-client-id-here` and `your-client-secret-here` with the values you copied.
