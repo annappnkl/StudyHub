@@ -1,73 +1,93 @@
-# React + TypeScript + Vite
+# StudyHub
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A personalized, adaptable study platform that generates comprehensive learning materials and interactive exercises using LLM-powered content generation.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Dynamic Study Plans**: Generate complete lecture roadmaps based on your learning goals
+- **Adaptive Learning Materials**: LLM categorizes and formats content optimally (processes, frameworks, definitions, concepts, comparisons)
+- **Interactive Practice Exercises**: Embedded exercises with LLM-powered evaluation and feedback
+- **Structured Learning**: Introduction → Learning Materials → Practice → Quiz flow
+- **Progress Tracking**: Chapter and subchapter completion tracking with unlock system
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend**: React + TypeScript + Vite
+- **Backend**: Express.js
+- **AI**: OpenAI API (GPT-4o-mini)
+- **Styling**: CSS3 with modern design
 
-## Expanding the ESLint configuration
+## Setup
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1. **Install dependencies**:
+   ```bash
+   npm install
+   ```
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+2. **Set up environment variables**:
+   Create a `.env` file in the root directory:
+   ```
+   OPENAI_API_KEY=your-api-key-here
+   PORT=8787
+   VITE_API_BASE_URL=http://localhost:8787
+   ```
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+3. **Start the development servers**:
+   
+   Terminal 1 (Backend API):
+   ```bash
+   npm run dev:api
+   ```
+   
+   Terminal 2 (Frontend):
+   ```bash
+   npm run dev
+   ```
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+4. **Open your browser**:
+   Navigate to the URL shown in the frontend terminal (usually `http://localhost:5173`)
+
+## Project Structure
+
+```
+StudyHub/
+├── server/
+│   └── index.js          # Express API server with OpenAI integration
+├── src/
+│   ├── App.tsx           # Main application component
+│   ├── App.css           # Application styles
+│   ├── api.ts            # API client functions
+│   ├── types.ts          # TypeScript type definitions
+│   └── ...
+├── .env                  # Environment variables (not committed)
+└── package.json         # Dependencies and scripts
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## How It Works
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1. **Create a Lecture**: Enter a topic and learning goal
+2. **Generate Plan**: LLM creates a structured study plan with chapters and subchapters
+3. **Learn**: Each subchapter includes:
+   - Introduction
+   - Categorized learning materials (processes, frameworks, etc.)
+   - Interactive practice exercises with LLM evaluation
+4. **Quiz**: Final quiz section tests overall understanding
+5. **Progress**: Complete subchapters to unlock next chapters
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## API Endpoints
+
+- `POST /api/plan` - Generate study plan
+- `POST /api/learning-sections` - Generate learning sections
+- `POST /api/learning-sections-enhancement` - Categorize and format sections
+- `POST /api/practice-exercise-refine` - Refine practice exercises
+- `POST /api/practice-exercise-evaluate` - Evaluate practice answers
+- `POST /api/exercises` - Generate quiz exercises
+- `POST /api/evaluate` - Evaluate quiz answers
+
+## Security Note
+
+⚠️ **Important**: Never commit your `.env` file or API keys to version control. The `.env` file is already in `.gitignore`.
+
+## License
+
+MIT
