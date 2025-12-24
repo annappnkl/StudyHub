@@ -133,44 +133,82 @@ function App() {
 
   // Check authentication and load lectures on mount
   useEffect(() => {
+    let isMounted = true
+    
     const initApp = async () => {
       try {
         console.log('Checking authentication on mount...')
         const authStatus = await checkAuth()
         console.log('Auth status:', authStatus)
+        
+        if (!isMounted) return
+        
         if (authStatus.authenticated && authStatus.user) {
           console.log('User authenticated:', authStatus.user.email)
           setUser(authStatus.user)
+          
           // Load saved lectures
-          const savedLectures = await loadLectures()
-          const lecturesMap: LectureMap = {}
-          savedLectures.forEach((lecture) => {
-            lecturesMap[lecture.id] = lecture
-          })
-          setLectures(lecturesMap)
-          setAppState('app')
+          try {
+            const savedLectures = await loadLectures()
+            if (!isMounted) return
+            
+            const lecturesMap: LectureMap = {}
+            savedLectures.forEach((lecture) => {
+              lecturesMap[lecture.id] = lecture
+            })
+            setLectures(lecturesMap)
+            setAppState('app')
+          } catch (loadErr) {
+            console.error('Failed to load lectures:', loadErr)
+            if (isMounted) {
+              // Still set app state even if lectures fail to load
+              setLectures({})
+              setAppState('app')
+            }
+          }
         } else {
           console.log('User not authenticated, showing access code screen')
-          setAppState('access-code')
+          if (isMounted) {
+            setAppState('access-code')
+          }
         }
       } catch (err) {
         console.error('Failed to check auth:', err)
-        setAppState('access-code')
+        if (isMounted) {
+          setAppState('access-code')
+        }
       }
     }
+    
     initApp()
+    
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   // Re-check auth when returning from OAuth (e.g., after redirect)
+  // Only run when on login/access-code screen, not when already authenticated
   useEffect(() => {
-    if (appState === 'app' || appState === 'loading') return
+    // Early return - don't run if already authenticated or still loading
+    if (appState === 'app' || appState === 'loading') {
+      return
+    }
+
+    let isMounted = true
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
 
     // Check auth when on login screen (might have just returned from OAuth)
     const checkAuthAfterRedirect = async () => {
+      if (!isMounted) return
+      
       try {
         console.log('Re-checking auth after redirect, current state:', appState)
         const authStatus = await checkAuth()
         console.log('Re-check auth status:', authStatus)
+        
+        if (!isMounted) return
+        
         if (authStatus.authenticated && authStatus.user) {
           console.log('User authenticated after redirect:', authStatus.user.email)
           setUser(authStatus.user)
@@ -191,9 +229,14 @@ function App() {
 
     // Check immediately and also after a delay to ensure session is set after OAuth redirect
     checkAuthAfterRedirect()
-    const timeout = setTimeout(checkAuthAfterRedirect, 1000)
+    timeoutId = setTimeout(checkAuthAfterRedirect, 1000)
     
-    return () => clearTimeout(timeout)
+    return () => {
+      isMounted = false
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+    }
   }, [appState])
 
   // Auto-save lectures when they change
