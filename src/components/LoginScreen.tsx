@@ -13,7 +13,7 @@ export function LoginScreen() {
       <div className="login-panel">
         <div className="login-header">
           <span className="logo-mark">SH</span>
-          <h1 className="login-title">Welcome to StudyHub</h1>
+          <h1 className="login-title">Welcome to HAWK</h1>
         </div>
         <p className="login-subtitle">
           Sign in with your Google account to save your progress and access your

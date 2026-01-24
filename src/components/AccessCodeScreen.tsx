@@ -45,7 +45,7 @@ export function AccessCodeScreen({ onCodeVerified }: AccessCodeScreenProps) {
       <div className="access-code-panel">
         <div className="access-code-header">
           <span className="logo-mark">SH</span>
-          <h1 className="access-code-title">StudyHub</h1>
+          <h1 className="access-code-title">HAWK</h1>
         </div>
         <p className="access-code-subtitle">
           Enter your access code to continue

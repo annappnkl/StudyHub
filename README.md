@@ -1,27 +1,47 @@
-# StudyHub
+# HAWK
 
-A personalized, adaptable study platform that generates comprehensive learning materials and interactive exercises using LLM-powered content generation.
+A personalized, AI-powered learning platform that generates comprehensive study materials, interactive exercises, and professional interview practice using advanced LLM technology.
 
 ## Features
 
+### 🎓 Core Learning Platform
 - **🔐 Access Control**: Gated access with access code system
 - **👤 Google OAuth Login**: Secure authentication with Google accounts
 - **💾 Cloud Sync**: Save and sync lectures across devices
 - **📱 Mobile Responsive**: Fully optimized for mobile devices
+- **🎯 Knowledge Assessment**: "Tinder-style" assessment to personalize content based on your existing knowledge
 - **Dynamic Study Plans**: Generate complete lecture roadmaps based on your learning goals
-- **Adaptive Learning Materials**: LLM categorizes and formats content optimally (processes, frameworks, definitions, concepts, comparisons)
-- **Interactive Practice Exercises**: Embedded exercises with LLM-powered evaluation and feedback
-- **Structured Learning**: Introduction → Learning Materials → Practice → Quiz flow
-- **Progress Tracking**: Chapter and subchapter completion tracking with unlock system
+- **🎨 Smart Content Generation**: Format-specific LLM prompts for better quality (processes, frameworks, concepts, comparisons)
+- **✨ Personalized Learning**: Subtle indicators show content adapted to your knowledge level
+- **Interactive Practice Exercises**: On-demand exercise generation with LLM-powered evaluation and feedback
+- **🧠 Comprehensive Testing**: Full chapter tests with detailed scenarios and performance analytics
+- **Progress Tracking**: All chapters unlocked with completion tracking
+
+### 🎤 Interview Practice (NEW!)
+- **AI-Powered Case Interviews**: Practice professional consulting interviews with voice interaction
+- **Real McKinsey-Style Cases**: Complete with the "Beautify" cosmetics case study
+- **Voice Recognition**: Record your answers with automatic transcription
+- **Dynamic Follow-ups**: AI generates contextual follow-up questions based on your responses
+- **Quantitative Analysis**: Math problems with step-by-step evaluation
+- **Professional Flow**: Introduction → Qualitative questions → Math analysis → Closing
+- **Performance Feedback**: Detailed analysis of your interview performance
 
 ## Tech Stack
 
+### Main Platform
 - **Frontend**: React + TypeScript + Vite
-- **Backend**: Express.js
+- **Backend**: Express.js (Node.js)
 - **Database**: MongoDB
 - **Authentication**: Passport.js with Google OAuth 2.0
 - **AI**: OpenAI API (GPT-4o-mini)
 - **Styling**: CSS3 with modern, mobile-responsive design
+
+### Interview Practice Service
+- **Backend**: FastAPI (Python)
+- **Voice Processing**: OpenAI Whisper (speech-to-text)
+- **AI Questions**: OpenAI GPT-4o-mini
+- **Text-to-Speech**: ElevenLabs
+- **Audio Format**: WebM recording with MP3 playback
 
 ## Setup
 
@@ -86,20 +106,74 @@ A personalized, adaptable study platform that generates comprehensive learning m
 6. **Open your browser**:
    Navigate to the URL shown in the frontend terminal (usually `http://localhost:5173`)
 
+### 🎤 Interview Practice Setup (Optional)
+
+To enable the AI-powered interview practice feature:
+
+7. **Set up Interview Practice Service**:
+   
+   **Additional Environment Variables** (add to your `.env` file):
+   ```bash
+   # ElevenLabs API (for text-to-speech)
+   ELEVENLABS_API_KEY=your-elevenlabs-api-key
+   ```
+
+8. **Install Python Dependencies**:
+   ```bash
+   # Automatic setup (recommended)
+   npm run setup:interview
+   
+   # OR manual setup
+   cd interviewer
+   pip3 install -r requirements.txt
+   ```
+
+9. **Start the Interview Service** (in a third terminal):
+   ```bash
+   npm run dev:interview
+   ```
+   
+   The interview service will run on `http://localhost:8001`
+
+10. **Interview Practice Usage**:
+    - Navigate to any lecture in HAWK
+    - Go to the final "Interview Practice" chapter
+    - Click "Case Study Interview Simulation"
+    - Allow microphone permissions when prompted
+    - Practice with the Beautify case study!
+
+**Requirements for Interview Practice**:
+- Python 3.8 or higher
+- OpenAI API key (for GPT-4o-mini + Whisper)
+- ElevenLabs API key (for text-to-speech)
+- Microphone access in browser
+- Modern browser with audio support
+
 ## Project Structure
 
 ```
-StudyHub/
+HAWK/
 ├── server/
-│   └── index.js          # Express API server with OpenAI integration
+│   └── index.js                    # Express API server with OpenAI integration
 ├── src/
-│   ├── App.tsx           # Main application component
-│   ├── App.css           # Application styles
-│   ├── api.ts            # API client functions
-│   ├── types.ts          # TypeScript type definitions
-│   └── ...
-├── .env                  # Environment variables (not committed)
-└── package.json         # Dependencies and scripts
+│   ├── App.tsx                     # Main application component
+│   ├── App.css                     # Application styles
+│   ├── api.ts                      # API client functions
+│   ├── types.ts                    # TypeScript type definitions
+│   └── components/
+│       ├── ChapterTest.tsx         # Comprehensive chapter testing
+│       ├── InterviewPractice.tsx   # Interview practice interface
+│       └── ...                     # Other React components
+├── interviewer/                    # Interview Practice Service (Python)
+│   ├── server.py                   # FastAPI backend for interviews
+│   ├── requirements.txt            # Python dependencies
+│   ├── transcripts/                # Interview session transcripts
+│   └── README.md                   # Interview service documentation
+├── scripts/
+│   ├── setup-interview-service.sh  # Interview setup script (Unix)
+│   └── setup-interview-service.bat # Interview setup script (Windows)
+├── .env                            # Environment variables (not committed)
+└── package.json                    # Dependencies and scripts
 ```
 
 ## How It Works

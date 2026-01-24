@@ -24,6 +24,7 @@ import { LoginScreen } from './components/LoginScreen'
 import { AssessmentScreen } from './components/AssessmentScreen'
 import { AssessmentResults } from './components/AssessmentResults'
 import { ChapterTest } from './components/ChapterTest'
+import { InterviewPractice } from './components/InterviewPractice'
 import type {
   Chapter,
   Exercise,
@@ -1523,9 +1524,9 @@ function App() {
     return (
       <div className="creation-state">
         <div className="panel">
-          <h1 className="title">StudyHub</h1>
+          <h1 className="title">HAWK</h1>
           <p className="subtitle">
-            Describe what you want to learn and your goal. StudyHub will draft an
+            Describe what you want to learn and your goal. HAWK will draft an
             adaptive lecture roadmap for you.
           </p>
 
@@ -1739,14 +1740,25 @@ function App() {
                 )}
               </section>
 
-              {/* Learning Sections */}
-              {exerciseLoading && activeSubchapter.learningSections.length === 0 && (
+              {/* Interview Practice Section */}
+              {activeSubchapter.id === 'case-interview-practice' && (
+                <InterviewPractice 
+                  chapterId={activeChapter.id}
+                  onComplete={() => {
+                    console.log('Interview practice completed')
+                    // Could mark subchapter as completed or show completion message
+                  }}
+                />
+              )}
+
+              {/* Learning Sections - Skip for Interview Practice */}
+              {activeSubchapter.id !== 'case-interview-practice' && exerciseLoading && activeSubchapter.learningSections.length === 0 && (
                 <section className="learning-sections">
                   <h3>Learning Materials</h3>
                   <p className="exercise-hint">Loading learning materials…</p>
                 </section>
               )}
-              {activeSubchapter.learningSections.length > 0 && (
+              {activeSubchapter.id !== 'case-interview-practice' && activeSubchapter.learningSections.length > 0 && (
                 <section className="learning-sections">
                   <h3>Learning Materials</h3>
                   {activeSubchapter.overallPersonalization && activeSubchapter.overallPersonalization.totalSectionsPersonalized > 0 && (
@@ -2175,8 +2187,8 @@ function App() {
     <div className="app-shell">
       <header className="app-header">
         <div className="app-header-left">
-          <span className="logo-mark">SH</span>
-          <span className="app-name">StudyHub</span>
+          <span className="logo-mark">H</span>
+          <span className="app-name">HAWK</span>
         </div>
         <div className="app-header-right">
           {user && (

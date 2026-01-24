@@ -524,6 +524,28 @@ Generate a comprehensive, well-coordinated plan without concept duplication.
     }
 
     const parsed = JSON.parse(content)
+    
+    // Always add Interview Practice as the final chapter
+    const interviewChapter = {
+      id: 'interview-practice',
+      title: 'Interview Practice',
+      subchapters: [{
+        id: 'case-interview-practice',
+        title: 'Case Study Interview Simulation',
+        content: 'Practice your consulting case interview skills with our AI-powered interview simulator. This interactive session will guide you through a real McKinsey-style case study with voice interaction and real-time feedback.',
+        conceptOutline: ['Case Study Analysis', 'Quantitative Problem Solving', 'Structured Thinking', 'Professional Communication']
+      }]
+    }
+    
+    // Add to concept map
+    if (parsed.conceptMap) {
+      parsed.conceptMap.allConcepts.push('Case Study Analysis', 'Quantitative Problem Solving', 'Structured Thinking', 'Professional Communication')
+      parsed.conceptMap.chapterDistribution['interview-practice'] = ['Case Study Analysis', 'Quantitative Problem Solving', 'Structured Thinking', 'Professional Communication']
+    }
+    
+    // Add the interview chapter
+    parsed.chapters.push(interviewChapter)
+    
     return res.json(parsed)
   } catch (err) {
     console.error(err)
