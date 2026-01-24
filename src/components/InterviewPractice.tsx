@@ -53,7 +53,6 @@ export function InterviewPractice({ onComplete }: InterviewPracticeProps) {
   // Interview state
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [userResponses, setUserResponses] = useState<string[]>([])
-  const [currentResponse, setCurrentResponse] = useState('')
   const [feedback, setFeedback] = useState<string[]>([])
   const [interviewComplete, setInterviewComplete] = useState(false)
   const [score, setScore] = useState<number>(0)
@@ -151,7 +150,6 @@ Beautify's president and COO engaged McKinsey to help evaluate if training the m
     setCurrentPhase('interview')
     setCurrentQuestionIndex(0)
     setUserResponses([])
-    setCurrentResponse('')
     setFeedback([])
     setInterviewComplete(false)
     setScore(0)
@@ -208,17 +206,6 @@ Beautify's president and COO engaged McKinsey to help evaluate if training the m
     return { score, feedback }
   }
 
-  const handleSubmitResponse = async () => {
-    if (!currentResponse.trim()) return
-
-    // Add user response to conversation history
-    const userMessage = { role: 'user' as const, text: currentResponse, timestamp: new Date() }
-    setConversationHistory(prev => [...prev, userMessage])
-    
-    // Process the typed response
-    await processResponse(currentResponse)
-    setCurrentResponse('')
-  }
 
   const handleVoiceResponse = async () => {
     try {
@@ -282,7 +269,6 @@ Beautify's president and COO engaged McKinsey to help evaluate if training the m
     setReadingTimeLeft(300)
     setCurrentQuestionIndex(0)
     setUserResponses([])
-    setCurrentResponse('')
     setFeedback([])
     setInterviewComplete(false)
     setScore(0)
