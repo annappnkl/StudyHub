@@ -35,11 +35,12 @@ export function AssessmentResults({ results, topic, onContinue }: AssessmentResu
   const averageScore = results.reduce((sum, r) => sum + r.score, 0) / results.length
 
   return (
-    <div className="assessment-results">
-      <div className="results-header">
-        <h2>Your Knowledge Assessment</h2>
-        <p>Here's what we learned about your background in <strong>{topic}</strong></p>
-      </div>
+    <div className="app-shell">
+      <div className="assessment-results">
+        <div className="results-header">
+          <h2>Your Knowledge Assessment</h2>
+          <p>Here's what we learned about your background in <strong>{topic}</strong></p>
+        </div>
 
       <div className="overall-stats">
         <div className="stat-card">
@@ -130,6 +131,7 @@ export function AssessmentResults({ results, topic, onContinue }: AssessmentResu
         >
           Create My Personalized Study Plan
         </button>
+      </div>
       </div>
     </div>
   )

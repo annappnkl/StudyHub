@@ -13,8 +13,8 @@ import {
   saveLecture,
   loadLectures,
   deleteLecture as apiDeleteLecture,
-  generateSkills,
-  generateAssessment,
+  // generateSkills,
+  // generateAssessment,
   type User,
 } from './api'
 import { AccessCodeScreen } from './components/AccessCodeScreen'
@@ -1143,6 +1143,19 @@ function App() {
   }
 
   if (appState === 'assessment') {
+    console.log('Rendering assessment screen with questions:', assessmentQuestions.length)
+    
+    if (assessmentQuestions.length === 0) {
+      return (
+        <div className="app-shell">
+          <div className="loading-screen">
+            <span className="logo-mark">SH</span>
+            <p>Loading assessment questions...</p>
+          </div>
+        </div>
+      )
+    }
+    
     return (
       <AssessmentScreen
         questions={assessmentQuestions}
@@ -1178,6 +1191,45 @@ function App() {
         materialsSummary: form.materialsSummary.trim(),
       })
       
+      // TEMPORARY: Add test questions for debugging
+      const testQuestions: AssessmentQuestion[] = [
+        {
+          id: 'test-1',
+          skillId: 'skill-1',
+          skillName: 'Test Skill 1',
+          category: 'Technical Skills',
+          question: 'Do you know how to use basic programming concepts?'
+        },
+        {
+          id: 'test-2',
+          skillId: 'skill-1',
+          skillName: 'Test Skill 1',
+          category: 'Technical Skills',
+          question: 'Are you familiar with data structures?'
+        },
+        {
+          id: 'test-3',
+          skillId: 'skill-2',
+          skillName: 'Test Skill 2',
+          category: 'Analytical Skills',
+          question: 'Can you solve logical problems?'
+        },
+        {
+          id: 'test-4',
+          skillId: 'skill-2',
+          skillName: 'Test Skill 2',
+          category: 'Analytical Skills',
+          question: 'Do you understand basic statistics?'
+        }
+      ]
+      
+      console.log('Using test questions for debugging')
+      setAssessmentQuestions(testQuestions)
+      setAppState('assessment')
+      setGenerationStage('idle')
+      
+      // TODO: Re-enable real API calls once backend is working
+      /*
       // Generate skills for assessment
       const skillsResponse = await generateSkills({
         topic: form.topic.trim(),
@@ -1192,15 +1244,25 @@ function App() {
         goal: form.goal.trim(),
       })
       
+      console.log('Assessment generated:', assessmentResponse.questions.length, 'questions')
       setAssessmentQuestions(assessmentResponse.questions)
       setAppState('assessment')
       setGenerationStage('idle')
+      */
     } catch (err) {
       console.error('Failed to generate assessment:', err)
-      setGenerationError(
-        err instanceof Error ? err.message : 'Failed to generate assessment',
-      )
+      let errorMessage = 'Failed to generate assessment'
+      if (err instanceof Error) {
+        errorMessage = err.message
+        // If it's a network error, provide more helpful message
+        if (err.message.includes('fetch')) {
+          errorMessage = 'Could not connect to server. Please check your connection and try again.'
+        }
+      }
+      setGenerationError(errorMessage)
       setGenerationStage('error')
+      // Reset app state to show the form with error message
+      setAppState('app')
     }
   }
 

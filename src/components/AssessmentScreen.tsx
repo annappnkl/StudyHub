@@ -9,10 +9,25 @@ interface AssessmentScreenProps {
 }
 
 export function AssessmentScreen({ questions, onComplete }: AssessmentScreenProps) {
+  console.log('AssessmentScreen rendered with', questions.length, 'questions')
 
   const [currentIndex, setCurrentIndex] = useState(0)
   const [responses, setResponses] = useState<AssessmentResponse[]>([])
   const [isCompleting, setIsCompleting] = useState(false)
+
+  // Safety check for empty questions
+  if (!questions || questions.length === 0) {
+    return (
+      <div className="app-shell">
+        <div className="assessment-screen">
+          <div className="assessment-header">
+            <h2>Loading Assessment...</h2>
+            <p>Preparing your knowledge assessment questions...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const handleSwipe = (questionId: string, knows: boolean) => {
     const question = questions.find(q => q.id === questionId)
@@ -86,11 +101,13 @@ export function AssessmentScreen({ questions, onComplete }: AssessmentScreenProp
 
   if (isCompleting) {
     return (
-      <div className="assessment-screen completing">
-        <div className="assessment-header">
-          <h2>Analyzing Your Knowledge...</h2>
-          <div className="completion-spinner">
-            <div className="spinner"></div>
+      <div className="app-shell">
+        <div className="assessment-screen completing">
+          <div className="assessment-header">
+            <h2>Analyzing Your Knowledge...</h2>
+            <div className="completion-spinner">
+              <div className="spinner"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -98,52 +115,54 @@ export function AssessmentScreen({ questions, onComplete }: AssessmentScreenProp
   }
 
   return (
-    <div className="assessment-screen">
-      <div className="assessment-header">
-        <h2>Knowledge Assessment</h2>
-        <p>Swipe right if you know it, left if you don't</p>
-        <div className="progress-container">
-          <div className="progress-bar">
-            <div 
-              className="progress-fill" 
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <span className="progress-text">
-            {Math.min(currentIndex + 1, questions.length)} / {questions.length}
-          </span>
-        </div>
-      </div>
-
-      <div className="card-stack-container">
-        <div className="card-stack">
-          {questions.map((question, index) => {
-            const isActive = index === currentIndex
-            const isVisible = index >= currentIndex && index <= currentIndex + 2
-            
-            if (!isVisible) return null
-
-            return (
-              <SwipeCard
-                key={question.id}
-                question={question}
-                onSwipe={handleSwipe}
-                isActive={isActive}
-                zIndex={questions.length - index}
+    <div className="app-shell">
+      <div className="assessment-screen">
+        <div className="assessment-header">
+          <h2>Knowledge Assessment</h2>
+          <p>Swipe right if you know it, left if you don't</p>
+          <div className="progress-container">
+            <div className="progress-bar">
+              <div 
+                className="progress-fill" 
+                style={{ width: `${progress}%` }}
               />
-            )
-          })}
+            </div>
+            <span className="progress-text">
+              {Math.min(currentIndex + 1, questions.length)} / {questions.length}
+            </span>
+          </div>
         </div>
-      </div>
 
-      <div className="assessment-instructions">
-        <div className="instruction-item">
-          <div className="swipe-demo left">←</div>
-          <span>Don't Know</span>
+        <div className="card-stack-container">
+          <div className="card-stack">
+            {questions.map((question, index) => {
+              const isActive = index === currentIndex
+              const isVisible = index >= currentIndex && index <= currentIndex + 2
+              
+              if (!isVisible) return null
+
+              return (
+                <SwipeCard
+                  key={question.id}
+                  question={question}
+                  onSwipe={handleSwipe}
+                  isActive={isActive}
+                  zIndex={questions.length - index}
+                />
+              )
+            })}
+          </div>
         </div>
-        <div className="instruction-item">
-          <div className="swipe-demo right">→</div>
-          <span>Know</span>
+
+        <div className="assessment-instructions">
+          <div className="instruction-item">
+            <div className="swipe-demo left">←</div>
+            <span>Don't Know</span>
+          </div>
+          <div className="instruction-item">
+            <div className="swipe-demo right">→</div>
+            <span>Know</span>
+          </div>
         </div>
       </div>
     </div>
