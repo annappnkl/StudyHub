@@ -667,51 +667,62 @@ function App() {
   const handleContinueAfterAssessment = async () => {
     if (!pendingLectureForm) return
 
+    console.log('Step 3: Adjusting lecture content based on assessment results...')
     setGenerationStage('generating')
     setGenerationError(null)
 
     try {
-      const payload: LectureGenerationRequest = {
-        topic: pendingLectureForm.topic,
-        goal: pendingLectureForm.goal,
-        materialsSummary: pendingLectureForm.materialsSummary || undefined,
+      // Find the temporarily stored lecture
+      const tempLecture = Object.values(lectures).find(l => l.id.startsWith('temp-'))
+      if (!tempLecture) {
+        throw new Error('Could not find pre-generated lecture')
       }
 
-      const plan = await requestStudyPlan(payload)
-      const lecture = createLectureFromPlan(plan, payload)
-
-      // Add assessment results to lecture
-      if (assessmentResults.length > 0) {
-        lecture.assessmentResults = {
+      // Create the final lecture with a proper ID and assessment results
+      const finalLecture: Lecture = {
+        ...tempLecture,
+        id: `lecture-${Date.now()}`,
+        assessmentResults: assessmentResults.length > 0 ? {
           skills: assessmentResults.map(result => ({
             name: result.skillName,
             knowledgeLevel: result.knowledgeLevel,
             assessmentScore: result.score,
           })),
           completedAt: new Date().toISOString(),
-        }
+        } : undefined,
       }
 
+      // Remove temp lecture and add final lecture
       setLectures((prev) => {
-        const updated = {
-          ...prev,
-          [lecture.id]: lecture,
-        }
+        const updated = { ...prev }
+        // Remove temp lecture
+        Object.keys(updated).forEach(id => {
+          if (id.startsWith('temp-')) {
+            delete updated[id]
+          }
+        })
+        // Add final lecture
+        updated[finalLecture.id] = finalLecture
+        
         // Auto-save the new lecture
         if (user) {
-          saveLecture(lecture).catch(console.error)
+          saveLecture(finalLecture).catch(console.error)
         }
         return updated
       })
-      setActiveLectureId(lecture.id)
+
+      setActiveLectureId(finalLecture.id)
       setGenerationStage('idle')
       setAppState('app')
+
+      console.log('Lecture created successfully with personalized content!')
     } catch (err) {
-      console.error('Failed to generate lecture:', err)
+      console.error('Failed to finalize lecture:', err)
       setGenerationError(
-        err instanceof Error ? err.message : 'Failed to generate lecture',
+        err instanceof Error ? err.message : 'Failed to create personalized lecture',
       )
       setGenerationStage('error')
+      setAppState('app')
     }
   }
 
@@ -1184,85 +1195,101 @@ function App() {
     setGenerationError(null)
 
     try {
-      // Store form data for after assessment
-      setPendingLectureForm({
+      // Store form data
+      const payload: LectureGenerationRequest = {
         topic: form.topic.trim(),
         goal: form.goal.trim(),
-        materialsSummary: form.materialsSummary.trim(),
+        materialsSummary: form.materialsSummary.trim() || undefined,
+      }
+
+      setPendingLectureForm({
+        topic: payload.topic,
+        goal: payload.goal,
+        materialsSummary: payload.materialsSummary || '',
       })
+
+      // Step 1: Generate the lecture plan FIRST
+      console.log('Step 1: Generating lecture plan...')
+      const plan = await requestStudyPlan(payload)
+      const lecture = createLectureFromPlan(plan, payload)
+
+      // Store the pre-generated lecture temporarily
+      const tempLectureId = `temp-${Date.now()}`
+      const tempLecture = { ...lecture, id: tempLectureId }
       
-      // TEMPORARY: Add test questions for debugging
+      setLectures((prev) => ({
+        ...prev,
+        [tempLectureId]: tempLecture,
+      }))
+
+      // Step 2: Generate assessment questions based on the lecture content
+      console.log('Step 2: Generating assessment based on lecture content...')
+
+      // TEMPORARY: Using test questions until backend is fixed
       const testQuestions: AssessmentQuestion[] = [
         {
-          id: 'test-1',
-          skillId: 'skill-1',
-          skillName: 'Test Skill 1',
-          category: 'Technical Skills',
-          question: 'Do you know how to use basic programming concepts?'
+          id: 'q1',
+          skillId: 'skill1',
+          skillName: plan.chapters[0]?.title || 'Core Concept',
+          category: 'Fundamental Knowledge',
+          question: `Do you already know the basics of ${plan.chapters[0]?.title || 'this topic'}?`
         },
         {
-          id: 'test-2',
-          skillId: 'skill-1',
-          skillName: 'Test Skill 1',
-          category: 'Technical Skills',
-          question: 'Are you familiar with data structures?'
+          id: 'q2', 
+          skillId: 'skill1',
+          skillName: plan.chapters[0]?.title || 'Core Concept',
+          category: 'Fundamental Knowledge',
+          question: `Are you familiar with key concepts in ${payload.topic}?`
         },
         {
-          id: 'test-3',
-          skillId: 'skill-2',
-          skillName: 'Test Skill 2',
-          category: 'Analytical Skills',
-          question: 'Can you solve logical problems?'
+          id: 'q3',
+          skillId: 'skill2', 
+          skillName: plan.chapters[1]?.title || 'Advanced Topics',
+          category: 'Applied Knowledge',
+          question: `Can you apply ${plan.chapters[1]?.title || 'these concepts'} in practice?`
         },
         {
-          id: 'test-4',
-          skillId: 'skill-2',
-          skillName: 'Test Skill 2',
-          category: 'Analytical Skills',
-          question: 'Do you understand basic statistics?'
+          id: 'q4',
+          skillId: 'skill2',
+          skillName: plan.chapters[1]?.title || 'Advanced Topics', 
+          category: 'Applied Knowledge',
+          question: `Do you have experience with advanced aspects of ${payload.topic}?`
         }
       ]
-      
-      console.log('Using test questions for debugging')
+
       setAssessmentQuestions(testQuestions)
       setAppState('assessment')
       setGenerationStage('idle')
-      
-      // TODO: Re-enable real API calls once backend is working
-      /*
-      // Generate skills for assessment
+
+      /* TODO: Re-enable when backend works
+      // Generate skills based on lecture content
       const skillsResponse = await generateSkills({
-        topic: form.topic.trim(),
-        goal: form.goal.trim(),
+        topic: payload.topic,
+        goal: payload.goal,
       })
-      
-      // Skills stored for assessment generation
-      
+
       // Generate assessment questions
       const assessmentResponse = await generateAssessment({
         skills: skillsResponse.skills,
-        goal: form.goal.trim(),
+        goal: payload.goal,
       })
       
-      console.log('Assessment generated:', assessmentResponse.questions.length, 'questions')
       setAssessmentQuestions(assessmentResponse.questions)
       setAppState('assessment')
       setGenerationStage('idle')
       */
+
     } catch (err) {
-      console.error('Failed to generate assessment:', err)
-      let errorMessage = 'Failed to generate assessment'
+      console.error('Failed to generate lecture:', err)
+      let errorMessage = 'Failed to generate lecture'
       if (err instanceof Error) {
         errorMessage = err.message
-        // If it's a network error, provide more helpful message
         if (err.message.includes('fetch')) {
           errorMessage = 'Could not connect to server. Please check your connection and try again.'
         }
       }
       setGenerationError(errorMessage)
       setGenerationStage('error')
-      // Reset app state to show the form with error message
-      setAppState('app')
     }
   }
 
