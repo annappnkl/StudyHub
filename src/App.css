@@ -2521,6 +2521,15 @@ textarea:focus {
   box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3);
 }
 
+.voice-record-button.recording {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+  animation: recording-pulse 1s ease-in-out infinite;
+}
+
+.voice-record-button.recording:hover {
+  box-shadow: 0 8px 20px rgba(107, 114, 128, 0.3);
+}
+
 .voice-stop-button {
   background: linear-gradient(135deg, #6b7280, #4b5563);
   border: none;
@@ -3750,7 +3759,7 @@ textarea:focus {
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.9));
+  background: linear-gradient(135deg, #0f172a, #1e293b);
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);

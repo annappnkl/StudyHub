@@ -165,29 +165,41 @@ Beautify's president and COO engaged McKinsey to help evaluate if training the m
       // Continue anyway as speech recognition might still work
     }
 
-    // AI introduces the interview with voice
+    // AI introduces the interview - display first, then speak
     const introText = "Hello! I'm your AI interviewer. I'll be conducting a case interview with you today using the Beautify case study. Let's begin with our first question."
     const introMessage = { role: 'ai' as const, text: introText, timestamp: new Date() }
     setConversationHistory([introMessage])
     
-    // Try to play intro with user interaction fallback
-    try {
-      await speakText(introText)
-    } catch (error) {
-      console.warn('Auto-play blocked, waiting for user interaction:', error)
-    }
-
-    // After intro, ask the first question
+    // Wait for UI to update, then speak intro
     setTimeout(async () => {
-      const firstQuestion = INTERVIEW_QUESTIONS[0]
-      const questionMessage = { role: 'ai' as const, text: firstQuestion.question, timestamp: new Date() }
-      setConversationHistory(prev => [...prev, questionMessage])
       try {
-        await speakText(firstQuestion.question)
+        await speakText(introText)
+        
+        // After intro finishes speaking, show and ask the first question
+        setTimeout(async () => {
+          const firstQuestion = INTERVIEW_QUESTIONS[0]
+          const questionMessage = { role: 'ai' as const, text: firstQuestion.question, timestamp: new Date() }
+          setConversationHistory(prev => [...prev, questionMessage])
+          
+          // Wait for UI update, then speak the question
+          setTimeout(async () => {
+            try {
+              await speakText(firstQuestion.question)
+            } catch (error) {
+              console.warn('Auto-play blocked for question:', error)
+            }
+          }, 500)
+        }, 1000)
       } catch (error) {
-        console.warn('Auto-play blocked for question:', error)
+        console.warn('Auto-play blocked for intro, showing first question anyway:', error)
+        // If speech fails, still show the first question
+        setTimeout(() => {
+          const firstQuestion = INTERVIEW_QUESTIONS[0]
+          const questionMessage = { role: 'ai' as const, text: firstQuestion.question, timestamp: new Date() }
+          setConversationHistory(prev => [...prev, questionMessage])
+        }, 2000)
       }
-    }, 3000)
+    }, 1000)
   }
 
   const evaluateResponse = (response: string, question: InterviewQuestion): { score: number; feedback: string } => {
@@ -227,19 +239,35 @@ Beautify's president and COO engaged McKinsey to help evaluate if training the m
 
 
   const handleVoiceResponse = async () => {
-    try {
-      const transcript = await startVoiceRecording()
-      
-      // Add voice response to conversation
-      const userMessage = { role: 'user' as const, text: transcript, timestamp: new Date() }
-      setConversationHistory(prev => [...prev, userMessage])
-      
-      // Process the voice response directly
-      await processResponse(transcript)
-    } catch (error) {
-      console.error('Voice recording failed:', error)
-      alert('Voice recording failed. Please ensure microphone permissions are enabled.')
+    if (isRecording) {
+      // Stop current recording
+      stopVoiceRecording()
+    } else {
+      // Start new recording
+      try {
+        const transcript = await startVoiceRecording()
+        
+        if (transcript.trim()) {
+          // Add voice response to conversation
+          const userMessage = { role: 'user' as const, text: transcript, timestamp: new Date() }
+          setConversationHistory(prev => [...prev, userMessage])
+          
+          // Process the voice response directly
+          await processResponse(transcript)
+        }
+      } catch (error) {
+        console.error('Voice recording failed:', error)
+        alert('Voice recording failed. Please ensure microphone permissions are enabled.')
+      }
     }
+  }
+
+  const stopVoiceRecording = () => {
+    if (speechRecognitionRef.current) {
+      speechRecognitionRef.current.stop()
+      speechRecognitionRef.current = null
+    }
+    setIsRecording(false)
   }
 
   const processResponse = async (responseText: string) => {
@@ -256,31 +284,45 @@ Beautify's president and COO engaged McKinsey to help evaluate if training the m
     setFeedback(newFeedback)
     setScore(prevScore => prevScore + evaluation.score)
 
-    // AI provides feedback via voice
+    // AI provides feedback - display first, then speak
     const aiResponse = `Thank you for your response. ${evaluation.feedback}`
     const aiMessage = { role: 'ai' as const, text: aiResponse, timestamp: new Date() }
     setConversationHistory(prev => [...prev, aiMessage])
 
-    // Speak the feedback
-    await speakText(aiResponse)
-
-    // Move to next question or complete interview
-    if (currentQuestionIndex < INTERVIEW_QUESTIONS.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1)
+    // Wait a moment for UI to update, then speak the feedback
+    setTimeout(async () => {
+      await speakText(aiResponse)
       
-      // Ask the next question via voice after a short delay
-      setTimeout(async () => {
-        const nextQuestion = INTERVIEW_QUESTIONS[currentQuestionIndex + 1]
-        const questionMessage = { role: 'ai' as const, text: nextQuestion.question, timestamp: new Date() }
-        setConversationHistory(prev => [...prev, questionMessage])
-        await speakText(`Now, let's move to the next question. ${nextQuestion.question}`)
-      }, 2000)
-    } else {
-      setInterviewComplete(true)
-      setTimeout(async () => {
-        await speakText("That concludes our interview. Thank you for your responses. You can review your performance and try again if you'd like.")
-      }, 2000)
-    }
+      // After speaking feedback, move to next question or complete interview
+      if (currentQuestionIndex < INTERVIEW_QUESTIONS.length - 1) {
+        setCurrentQuestionIndex(prev => prev + 1)
+        
+        // Ask the next question - display first, then speak
+        setTimeout(async () => {
+          const nextQuestion = INTERVIEW_QUESTIONS[currentQuestionIndex + 1]
+          const questionText = `Now, let's move to the next question. ${nextQuestion.question}`
+          const questionMessage = { role: 'ai' as const, text: questionText, timestamp: new Date() }
+          setConversationHistory(prev => [...prev, questionMessage])
+          
+          // Wait for UI update, then speak
+          setTimeout(async () => {
+            await speakText(questionText)
+          }, 500)
+        }, 1000)
+      } else {
+        // Interview complete - display final message first, then speak
+        setTimeout(async () => {
+          const finalMessage = "That concludes our interview. Thank you for your responses. You can review your performance and try again if you'd like."
+          const finalAiMessage = { role: 'ai' as const, text: finalMessage, timestamp: new Date() }
+          setConversationHistory(prev => [...prev, finalAiMessage])
+          
+          setTimeout(async () => {
+            await speakText(finalMessage)
+            setInterviewComplete(true)
+          }, 500)
+        }, 1000)
+      }
+    }, 500)
   }
 
   const restartInterview = () => {
@@ -352,7 +394,7 @@ Beautify's president and COO engaged McKinsey to help evaluate if training the m
     }
   }
 
-  // Voice Recognition
+  // Voice Recognition with auto-stop
   const startVoiceRecording = (): Promise<string> => {
     return new Promise((resolve, reject) => {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
@@ -363,28 +405,60 @@ Beautify's president and COO engaged McKinsey to help evaluate if training the m
       }
 
       const recognition = new SpeechRecognition()
-      recognition.continuous = false
-      recognition.interimResults = false
+      recognition.continuous = true
+      recognition.interimResults = true
       recognition.lang = 'en-US'
       recognition.maxAlternatives = 1
 
       speechRecognitionRef.current = recognition
       setIsRecording(true)
 
+      let finalTranscript = ''
+      let silenceTimeout: ReturnType<typeof setTimeout>
+      
+      // Auto-stop after 10 seconds of no speech
+      const resetSilenceTimeout = () => {
+        if (silenceTimeout) clearTimeout(silenceTimeout)
+        silenceTimeout = setTimeout(() => {
+          recognition.stop()
+        }, 10000)
+      }
+
+      recognition.onstart = () => {
+        resetSilenceTimeout()
+      }
+
       recognition.onresult = (event: SpeechRecognitionEvent) => {
-        const transcript = event.results[0][0].transcript
-        resolve(transcript)
-        setIsRecording(false)
+        let interimTranscript = ''
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' '
+          } else {
+            interimTranscript += transcript
+          }
+        }
+        
+        // Reset silence timeout on any speech
+        if (interimTranscript || finalTranscript) {
+          resetSilenceTimeout()
+        }
       }
 
       recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.error('Speech recognition error:', event.error)
-        reject(new Error(`Speech recognition failed: ${event.error}`))
+        if (silenceTimeout) clearTimeout(silenceTimeout)
         setIsRecording(false)
+        speechRecognitionRef.current = null
+        reject(new Error(`Speech recognition failed: ${event.error}`))
       }
 
       recognition.onend = () => {
+        if (silenceTimeout) clearTimeout(silenceTimeout)
         setIsRecording(false)
+        speechRecognitionRef.current = null
+        resolve(finalTranscript.trim())
       }
 
       recognition.start()
@@ -572,17 +646,16 @@ Beautify's president and COO engaged McKinsey to help evaluate if training the m
             {!isAISpeaking && (
               <button 
                 onClick={handleVoiceResponse}
-                className="voice-record-button"
-                disabled={isRecording}
+                className={`voice-record-button ${isRecording ? 'recording' : ''}`}
               >
-                {isRecording ? '🎤 Listening now...' : '🎤 Start Recording Answer'}
+                {isRecording ? '⏹️ Stop Recording' : '🎤 Start Recording Answer'}
               </button>
             )}
 
             {isAISpeaking && (
               <div className="ai-speaking-indicator">
                 <div className="pulse-animation">🔊</div>
-                <span>AI is responding...</span>
+                <span>AI is speaking...</span>
               </div>
             )}
           </div>
