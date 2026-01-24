@@ -620,7 +620,8 @@ PERSONALIZATION INSTRUCTIONS:
 - For skills marked as "intermediate": Focus on practical applications and deeper understanding  
 - For skills marked as "advanced": Emphasize advanced applications, edge cases, and nuanced aspects
 - Adjust content depth and exercise complexity based on these knowledge levels
-- Ensure content builds appropriately on user's existing knowledge`
+- Ensure content builds appropriately on user's existing knowledge
+- TRACK PERSONALIZATION: For each section, note which skills influenced the content adjustment and why`
       : ''
 
     const conceptCoordinationContext = conceptMap && conceptOutline 
@@ -655,13 +656,48 @@ Analyze the introduction and create learning sections. CRITICAL REQUIREMENTS:
    
    NOTE: Do NOT create separate "definition" sections. Instead, integrate key term definitions naturally within the explanations of concepts, processes, or frameworks.
 
-3. FORMAT content appropriately:
-   - For "process"/"framework"/"method": Include "process" array with clear steps
-   - For "framework": Include "components" array with {name, description}
-   - For "comparison": Include "comparisonPoints" array with {aspect, details}
-   - For "concept": Include comprehensive "explanation" that integrates any necessary definitions naturally
-   - Always include "explanation" (adjust depth based on user's knowledge level in related skills)
-   - Always include "example" (concrete example, with complexity appropriate to user's level)
+3. FORMAT content with TYPE-SPECIFIC approach:
+
+**FOR PROCESS SECTIONS:**
+- Focus on actionable, step-by-step instructions
+- Include "process" array with clear, implementable steps
+- Explanation should emphasize HOW TO EXECUTE the process
+- Examples should be ONLY included if they demonstrate a complex step or common pitfall
+- Avoid generic company examples - focus on the methodology itself
+
+**FOR FRAMEWORK SECTIONS:**
+- Provide framework structure with "components" array {name, description}
+- Explanation should focus on WHEN and HOW to apply the framework
+- Skip basic examples like "SWOT analysis for Apple" - focus on framework application principles
+- Include examples ONLY if they illustrate framework adaptation or advanced usage
+
+**FOR METHOD SECTIONS:**
+- Explain the technique with implementation details
+- Include "process" array if method has sequential steps
+- Focus on practical application rather than theoretical background
+- Avoid generic scenarios - emphasize method execution and variations
+
+**FOR CONCEPT SECTIONS:**
+- Provide clear definition integrated within comprehensive explanation
+- Focus on contextual understanding and practical implications
+- Include examples ONLY for complex concepts where they add significant clarification
+- Avoid obvious examples - prioritize concept depth and nuance
+
+**FOR COMPARISON SECTIONS:**
+- Use "comparisonPoints" array with {aspect, details} structure
+- Focus on key differentiators and decision criteria
+- Explain WHEN to choose each approach
+- Skip generic pros/cons lists - emphasize strategic application
+
+**SMART EXAMPLE LOGIC:**
+- Examples are OPTIONAL and should only be included when they:
+  * Illustrate a complex application that's hard to grasp otherwise
+  * Demonstrate common mistakes or edge cases
+  * Show advanced or nuanced usage
+- NEVER include examples for:
+  * Simple definitions or basic concepts
+  * Well-known frameworks unless showing advanced application
+  * Obvious processes that don't need illustration
 
 4. EXERCISE RECOMMENDATION: For each section, determine if it warrants an exercise:
    - "hasExerciseButton": true for complex concepts, methods, frameworks, processes
@@ -680,28 +716,50 @@ Return JSON:
     {
       "id": "string (unique)",
       "title": "string (specific concept/term/method name)",
-      "format": "process" | "framework" | "method" | "definition" | "concept" | "comparison",
+      "format": "process" | "framework" | "method" | "concept" | "comparison",
       "content": {
         "explanation": "string (8-15 sentences, adjust depth based on user knowledge level)",
-        "process": ["step 1", "step 2", ...] (only for process/framework/method),
+        "process": ["step 1", "step 2", ...] (only for process/framework/method with sequential steps),
         "components": [{"name": "string", "description": "string"}] (only for framework),
         "comparisonPoints": [{"aspect": "string", "details": "string"}] (only for comparison),
-        "example": "string (concrete example)"
+        "example": "string (OPTIONAL - only include if it adds significant value per smart example logic above)",
+        "exampleReason": "string (OPTIONAL - if example is included, briefly explain why it's necessary)"
       },
       "hasExerciseButton": boolean,
-      "practiceExercises": [] // Always empty array - exercises generated on-demand
+      "practiceExercises": [], // Always empty array - exercises generated on-demand
+      "contentQuality": {
+        "focusedOnPracticalApplication": boolean,
+        "avoidedGenericExamples": boolean,
+        "formatSpecificApproach": boolean
+      },
+      "personalization": {
+        "wasPersonalized": boolean,
+        "adjustedForSkills": ["skillName1", "skillName2"] (if personalized),
+        "adjustmentReason": "string (brief explanation of why content was adjusted based on assessment)",
+        "knowledgeLevelFocus": "beginner" | "intermediate" | "advanced" (if personalized)
+      }
     }
-  ]
+  ],
+  "overallPersonalization": {
+    "totalSectionsPersonalized": number,
+    "primaryAdjustmentReasons": ["reason1", "reason2"],
+    "knowledgeLevelsAddressed": ["beginner", "intermediate", "advanced"]
+  }
 }
 
-CRITICAL: 
+CRITICAL FORMAT-SPECIFIC REQUIREMENTS: 
+- APPLY the format-specific approach above - each content type has different generation rules
+- SMART EXAMPLES: Only include examples that truly add value. Most basic concepts and frameworks don't need examples.
 - NO separate definition sections - integrate definitions within concept explanations
 - If content lists terms/concepts, create sections for EACH one but as "concept" format with integrated definitions
+- FOCUS ON PRACTICAL APPLICATION: Prioritize how-to guidance over theoretical background
+- AVOID GENERIC EXAMPLES: Skip obvious examples like "SWOT for Apple" or "BCG matrix for tech company"
 - Only set hasExerciseButton: true for content that warrants practice
-- Keep all content factual and accurate
+- Keep all content factual and accurate - reduce creativity, focus on precision
 - PERSONALIZE content depth based on user's assessed knowledge levels
-- EXCLUDE general world knowledge: Do NOT create sections for overly basic, general knowledge that anyone would know (e.g., "math is a way of calculating numbers", "statistical calculations are a method to analyze data", "reading is a skill", "writing involves putting words on paper"). Only include content that is SPECIFIC to the topic and goal, and requires actual learning/instruction.
-- FILTER OUT: If a section would only contain general knowledge that doesn't add value to the learning goal, exclude it entirely.
+- EXCLUDE general world knowledge: Do NOT create sections for overly basic, general knowledge that anyone would know
+- FILTER OUT: If a section would only contain general knowledge that doesn't add value to the learning goal, exclude it entirely
+- QUALITY CHECK: Each section should pass the "does this teach something specific and actionable?" test
 `
 
     const completion = await openai.chat.completions.create({
@@ -1470,6 +1528,284 @@ Example for SWOT Analysis skill (if covered in lecture):
   } catch (err) {
     console.error(err)
     return res.status(500).json({ error: 'Failed to generate assessment questions' })
+  }
+})
+
+// New endpoint: Generate comprehensive chapter test
+app.post('/api/generate-chapter-test', async (req, res) => {
+  const { 
+    chapterData,      // All subchapters and learning sections
+    userExerciseHistory, // Previous exercise attempts and scores  
+    assessmentResults,   // User knowledge levels
+    goal 
+  } = req.body || {}
+
+  if (!chapterData || !goal) {
+    return res.status(400).json({ error: 'Missing required fields (chapterData, goal)' })
+  }
+
+  try {
+    const system = 'You are an expert test designer. Create comprehensive, hands-on tests that assess mastery of chapter content with detailed, realistic scenarios.'
+
+    // Build context about user performance and knowledge levels
+    const userContext = assessmentResults 
+      ? `\n\nUser Knowledge Assessment:
+${assessmentResults.map(skill => `- ${skill.skillName}: ${skill.knowledgeLevel} level (${Math.round(skill.assessmentScore * 100)}% knowledge)`).join('\n')}
+
+ADAPTIVE TEST STRATEGY:
+- Focus MORE on areas where user has "beginner" or "intermediate" levels
+- Include advanced applications for "advanced" level skills
+- Weight difficulty and question count based on knowledge gaps`
+      : ''
+
+    const exerciseHistoryContext = userExerciseHistory && userExerciseHistory.length > 0
+      ? `\n\nUser Exercise Performance History:
+${userExerciseHistory.map(ex => `- ${ex.sectionTitle}: ${ex.success ? 'Success' : 'Struggled'} (Score: ${ex.score || 'N/A'})`).join('\n')}
+
+PERFORMANCE-BASED FOCUS:
+- Generate more questions for topics where user struggled
+- Include follow-up questions for areas with low scores`
+      : ''
+
+    const user = `
+Goal: ${goal}
+Chapter Title: ${chapterData.title}
+
+Chapter Content Analysis:
+${chapterData.subchapters.map(sub => `
+Subchapter: ${sub.title}
+Learning Sections: ${sub.learningSections.map(ls => `
+- ${ls.title} (${ls.format}): ${ls.content.explanation.substring(0, 200)}...`).join('')}
+`).join('\n')}${userContext}${exerciseHistoryContext}
+
+Generate a comprehensive chapter test with 5-7 questions that cover the ENTIRE chapter content.
+
+QUESTION STRUCTURE REQUIREMENTS:
+
+1. **Framework Application Questions (2-3 questions):**
+   - For frameworks like SWOT, Porter's Five Forces, etc.
+   - Include DETAILED company/scenario descriptions (150-300 words)
+   - Provide enough context for thorough analysis
+   - Example: "TechFlow Inc. is a 5-year-old SaaS company providing project management tools. They started with 10 employees and have grown to 200 people across 8 countries. Their main product serves mid-market companies (100-1000 employees). Recently, they've faced increased competition from Microsoft's new project management features and Slack's workflow tools. The company has strong customer loyalty (95% retention) but struggles with feature bloat and longer sales cycles. Their engineering team is split between maintaining the core product and developing AI-powered features. Founder-CEO Sarah Martinez is considering whether to focus on enterprise clients, international expansion, or AI innovation. Using SWOT analysis, evaluate TechFlow's strategic position and provide recommendations."
+
+2. **Process Implementation Questions (1-2 questions):**
+   - Step-by-step method application  
+   - Include realistic constraints and parameters
+   - Test ability to execute learned processes
+
+3. **Conceptual Understanding Questions (1-2 questions):**
+   - Can be MCQ or short answer
+   - Test key theoretical knowledge
+   - Include application context
+
+4. **Integration Question (1 question):**
+   - Combines multiple concepts from the chapter
+   - Tests holistic understanding
+   - Most challenging question
+
+CRITICAL TEST DESIGN PRINCIPLES:
+- Each question must be answerable using ONLY content taught in this chapter
+- Scenarios must be detailed enough for thorough analysis
+- Weight questions toward user's weaker knowledge areas
+- Include variety of question types (scenario-based, MCQ, short answer)
+- Questions should take 5-15 minutes each to complete properly
+- Provide clear instructions for what depth of answer is expected
+
+Return JSON:
+{
+  "test": {
+    "id": "string (unique)",
+    "chapterId": "string (matches chapterData.id)",
+    "title": "string (Chapter X - Comprehensive Test)",
+    "estimatedTimeMinutes": number,
+    "questions": [
+      {
+        "id": "string (unique)",
+        "type": "scenario-based" | "mcq" | "short-answer" | "integration",
+        "prompt": "string (clear question/instruction)",
+        "detailedScenario": "string (rich company/situation description, 150-300 words for scenario-based)",
+        "options": [{"id": "a|b|c|d", "text": "string", "isCorrect": boolean}] (only for MCQ),
+        "expectedAnswerLength": "brief" | "moderate" | "comprehensive",
+        "relatedSections": ["sectionId1", "sectionId2"], 
+        "difficulty": "beginner" | "intermediate" | "advanced",
+        "maxPoints": number,
+        "evaluationCriteria": ["criterion1", "criterion2"] (what to look for in answers)
+      }
+    ],
+    "totalPoints": number,
+    "adaptedForUser": {
+      "focusedOnWeakAreas": ["skill1", "skill2"],
+      "difficultyAdjustments": "string (explanation of how test was adapted)"
+    }
+  }
+}
+
+CRITICAL: Scenarios must be realistic, detailed, and provide sufficient information for thorough analysis. Each question should test practical application, not just memorization.
+`
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      temperature: 0.4, // Balanced between consistency and creativity for scenarios
+    })
+
+    const content = completion.choices[0]?.message?.content
+    if (!content) throw new Error('No content from OpenAI')
+
+    const parsed = JSON.parse(content)
+    return res.json(parsed)
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'Failed to generate chapter test' })
+  }
+})
+
+// New endpoint: Evaluate chapter test
+app.post('/api/evaluate-chapter-test', async (req, res) => {
+  const { 
+    test,
+    answers,
+    timeSpentMinutes,
+    goal,
+    userAssessmentResults
+  } = req.body || {}
+
+  if (!test || !answers || !Array.isArray(answers) || !goal) {
+    return res.status(400).json({ error: 'Missing required fields (test, answers, goal)' })
+  }
+
+  try {
+    const system = 'You are an expert educational evaluator. Provide detailed, constructive feedback on chapter test performance with actionable recommendations.'
+
+    const userContext = userAssessmentResults 
+      ? `\n\nUser Knowledge Assessment Context:
+${userAssessmentResults.map(skill => `- ${skill.skillName}: ${skill.knowledgeLevel} level (${Math.round(skill.assessmentScore * 100)}% knowledge)`).join('\n')}
+
+Use this context to provide personalized feedback and recommendations.`
+      : ''
+
+    const user = `
+Learning Goal: ${goal}
+Test Title: ${test.title}
+Time Spent: ${timeSpentMinutes} minutes (Estimated: ${test.estimatedTimeMinutes} minutes)
+
+Test Questions & User Answers:
+${answers.map((answer, idx) => {
+  const question = test.questions.find(q => q.id === answer.questionId)
+  return `
+Question ${idx + 1} (${question?.type || 'unknown'} - ${question?.difficulty || 'unknown'} - ${question?.maxPoints || 0} points):
+Prompt: ${question?.prompt || 'Unknown question'}
+${question?.detailedScenario ? `Scenario: ${question.detailedScenario.substring(0, 300)}...` : ''}
+User Answer: ${answer.userAnswer}
+${answer.selectedOptionId ? `Selected Option: ${answer.selectedOptionId}` : ''}
+Evaluation Criteria: ${question?.evaluationCriteria?.join(', ') || 'Not specified'}`
+}).join('\n')}${userContext}
+
+Evaluate each answer and provide comprehensive feedback:
+
+For MCQ Questions:
+- Check if selected option is correct
+- Explain why the answer is right/wrong
+- Provide learning points
+
+For Open-Ended Questions:
+- Assess completeness and accuracy
+- Check against evaluation criteria
+- Identify strengths and gaps
+- Score on a 0-100 scale
+
+For Scenario-Based Questions:
+- Evaluate depth of analysis
+- Check application of frameworks/methods
+- Assess practical insights
+- Look for real-world understanding
+
+SCORING GUIDELINES:
+- Advanced level responses (90-100): Exceptional understanding, complete application, insightful analysis
+- Proficient level responses (75-89): Good understanding, mostly correct application, adequate analysis
+- Developing level responses (60-74): Basic understanding, partial application, some gaps
+- Beginning level responses (0-59): Limited understanding, significant gaps, needs improvement
+
+Return JSON:
+{
+  "totalScore": number (sum of all question scores),
+  "maxScore": number (sum of all possible points),
+  "percentageScore": number (0-100),
+  "timeEfficiency": "excellent" | "good" | "adequate" | "needs_improvement",
+  "answers": [
+    {
+      "questionId": "string",
+      "score": number (0 to question.maxPoints),
+      "maxScore": number (question.maxPoints),
+      "isCorrect": boolean (for MCQ),
+      "feedback": "string (detailed, constructive feedback 2-4 sentences)",
+      "strengths": ["string (what they did well)"],
+      "improvements": ["string (specific areas to work on)"],
+      "correctAnswer": "string (for MCQ, the correct option explanation)"
+    }
+  ],
+  "overallFeedback": {
+    "overallPerformance": "string (2-3 sentences overall assessment)",
+    "strengths": ["string (top 2-3 strengths across all answers)"],
+    "areasForImprovement": ["string (top 2-3 areas needing work)"],
+    "recommendedActions": ["string (specific study suggestions)"],
+    "masteryLevel": "beginner" | "intermediate" | "advanced",
+    "performanceInsights": {
+      "bestPerformingAreas": ["string (topics they excelled in)"],
+      "strugglingAreas": ["string (topics needing more work)"],
+      "frameworkApplication": "string (assessment of how well they applied learned frameworks)",
+      "conceptualUnderstanding": "string (assessment of theoretical grasp)",
+      "practicalApplication": "string (assessment of real-world application ability)"
+    }
+  },
+  "nextSteps": {
+    "shouldRetakeTest": boolean,
+    "suggestedReviewSections": ["string (specific subchapter/section names)"],
+    "readyForAdvanced": boolean,
+    "estimatedStudyTime": "string (recommended additional study time)"
+  }
+}
+
+CRITICAL EVALUATION PRINCIPLES:
+- Be encouraging yet honest about performance
+- Provide specific, actionable feedback
+- Connect performance to learning objectives
+- Suggest concrete next steps
+- Consider user's original knowledge level in feedback
+- Focus on growth and improvement
+`
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      temperature: 0.3, // Lower temperature for consistent, fair evaluation
+    })
+
+    const content = completion.choices[0]?.message?.content
+    if (!content) throw new Error('No content from OpenAI')
+
+    const parsed = JSON.parse(content)
+    
+    // Add metadata to the response
+    const evaluationResult = {
+      ...parsed,
+      evaluatedAt: new Date().toISOString(),
+      testId: test.id,
+      evaluationVersion: '1.0'
+    }
+    
+    return res.json(evaluationResult)
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'Failed to evaluate chapter test' })
   }
 })
 

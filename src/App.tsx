@@ -15,12 +15,15 @@ import {
   deleteLecture as apiDeleteLecture,
   generateSkills,
   generateAssessment,
+  generateChapterTest,
+  evaluateChapterTest,
   type User,
 } from './api'
 import { AccessCodeScreen } from './components/AccessCodeScreen'
 import { LoginScreen } from './components/LoginScreen'
 import { AssessmentScreen } from './components/AssessmentScreen'
 import { AssessmentResults } from './components/AssessmentResults'
+import { ChapterTest } from './components/ChapterTest'
 import type {
   Chapter,
   Exercise,
@@ -32,6 +35,8 @@ import type {
   LearningSection,
   AssessmentQuestion,
   AssessmentResult,
+  ChapterTestResult,
+  UserExerciseHistoryItem,
 } from './types'
 
 // Extend Window interface for temporary lecture storage
@@ -515,6 +520,10 @@ function App() {
   const [assessmentQuestions, setAssessmentQuestions] = useState<AssessmentQuestion[]>([])
   const [assessmentResults, setAssessmentResults] = useState<AssessmentResult[]>([])
   const [pendingLectureForm, setPendingLectureForm] = useState<LectureFormState | null>(null)
+  
+  // Chapter Test state
+  const [showChapterTest, setShowChapterTest] = useState(false)
+  const [chapterTestResults, setChapterTestResults] = useState<Record<string, ChapterTestResult>>({})
   
   // Loading messages state
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0)
@@ -1148,6 +1157,7 @@ function App() {
         })
         
         const enhancedSections = response.learningSections
+        const overallPersonalization = response.overallPersonalization
 
         setLectures((prev) => {
           const current = prev[currentLecture.id]
@@ -1162,6 +1172,7 @@ function App() {
                     ? {
                         ...s,
                         learningSections: enhancedSections,
+                        overallPersonalization: overallPersonalization,
                       }
                     : s,
                 ),
@@ -1688,6 +1699,15 @@ function App() {
         </button>
                   )
                 })}
+                {/* Test Myself Tab */}
+                <button
+                  className={`subchapter-pill test-myself-tab ${showChapterTest ? 'subchapter-pill--active' : ''}`}
+                  onClick={() => setShowChapterTest(true)}
+                  type="button"
+                >
+                  <span className="subchapter-pill-index">🎯</span>
+                  <span className="subchapter-pill-label">Test Myself</span>
+                </button>
               </div>
 
               {/* Introduction Section */}
@@ -1731,10 +1751,37 @@ function App() {
               {activeSubchapter.learningSections.length > 0 && (
                 <section className="learning-sections">
                   <h3>Learning Materials</h3>
+                  {activeSubchapter.overallPersonalization && activeSubchapter.overallPersonalization.totalSectionsPersonalized > 0 && (
+                    <div className="personalization-summary">
+                      <div className="personalization-summary-content">
+                        <span className="personalization-icon">🎯</span>
+                        <div className="personalization-info">
+                          <strong>Personalized for Your Level:</strong>
+                          <span>
+                            {activeSubchapter.overallPersonalization.totalSectionsPersonalized} section
+                            {activeSubchapter.overallPersonalization.totalSectionsPersonalized > 1 ? 's' : ''} adapted 
+                            based on your assessment
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   {activeSubchapter.learningSections.map((section) => (
-                    <div key={section.id} className="learning-section">
-                      <h4>{section.title}</h4>
-                      <span className="format-badge">{section.format}</span>
+                    <div key={section.id} className={`learning-section ${section.personalization?.wasPersonalized ? 'personalized-section' : ''}`}>
+                      <div className="section-header">
+                        <h4>{section.title}</h4>
+                        <div className="section-badges">
+                          <span className="format-badge">{section.format}</span>
+                          {section.personalization?.wasPersonalized && (
+                            <span 
+                              className="personalization-badge"
+                              title={`Personalized: ${section.personalization.adjustmentReason}`}
+                            >
+                              🎯 Tailored for you
+                            </span>
+                          )}
+                        </div>
+                      </div>
 
                       {/* Explanation with text highlighting */}
                       <div 
@@ -1828,13 +1875,20 @@ function App() {
                           </div>
                         )}
 
-                      {/* Example */}
+                      {/* Smart Example - Only shown when truly needed */}
                       {section.content.example && (
                         <div 
-                          className="section-example"
+                          className="section-example smart-example"
                           onMouseUp={() => handleTextSelection(section.id)}
                         >
-                          <h5>Example:</h5>
+                          <div className="example-header">
+                            <h5>Example:</h5>
+                            {section.content.exampleReason && (
+                              <span className="example-reason-badge" title={section.content.exampleReason}>
+                                🎯 Curated
+                              </span>
+                            )}
+                          </div>
                           <TextWithHighlights
                             text={section.content.example}
                             sectionId={section.id}
@@ -1843,6 +1897,11 @@ function App() {
                               setExplanationPopup({ text, explanation })
                             }}
                           />
+                          {section.content.exampleReason && (
+                            <div className="example-reasoning">
+                              <small>📝 {section.content.exampleReason}</small>
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -2227,6 +2286,46 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Chapter Test Modal */}
+      {showChapterTest && activeChapter && activeLecture && (
+        <ChapterTest
+          chapter={{
+            ...activeChapter,
+            subchapters: activeChapter.subchapters.map(sub => ({
+              ...sub,
+              learningSections: sub.learningSections || []
+            }))
+          }}
+          goal={activeLecture.goal}
+          userExerciseHistory={
+            // Build exercise history from current lecture
+            Object.entries(exerciseStates).map(([exerciseId, state]): UserExerciseHistoryItem => ({
+              sectionTitle: exerciseId, // This would ideally be mapped to section titles
+              success: state.isCorrect === true,
+              score: state.score || 0,
+              attempts: 1
+            }))
+          }
+          assessmentResults={
+            activeLecture.assessmentResults?.skills.map(skill => ({
+              skillName: skill.name,
+              knowledgeLevel: skill.knowledgeLevel,
+              assessmentScore: skill.assessmentScore
+            }))
+          }
+          onTestComplete={(results) => {
+            setChapterTestResults(prev => ({
+              ...prev,
+              [activeChapter.id]: results
+            }))
+            setShowChapterTest(false)
+          }}
+          onGenerateTest={generateChapterTest}
+          onEvaluateTest={evaluateChapterTest}
+          onClose={() => setShowChapterTest(false)}
+        />
       )}
     </div>
   )

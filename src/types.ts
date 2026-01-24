@@ -29,8 +29,166 @@ export interface LearningSectionContent {
   comparisonPoints?: Array<{ aspect: string; details: string }>
   // For framework types
   components?: Array<{ name: string; description: string }>
-  // Example for all types
+  // Example for all types (now optional with smart logic)
   example?: string
+  // Reason why example was included (optional)
+  exampleReason?: string
+}
+
+export interface ContentQuality {
+  focusedOnPracticalApplication: boolean
+  avoidedGenericExamples: boolean
+  formatSpecificApproach: boolean
+}
+
+export interface PersonalizationInfo {
+  wasPersonalized: boolean
+  adjustedForSkills?: string[]
+  adjustmentReason?: string
+  knowledgeLevelFocus?: KnowledgeLevel
+}
+
+export interface OverallPersonalizationInfo {
+  totalSectionsPersonalized: number
+  primaryAdjustmentReasons: string[]
+  knowledgeLevelsAddressed: KnowledgeLevel[]
+}
+
+// Chapter Testing System Types
+export interface TestQuestion {
+  id: string
+  type: 'mcq' | 'short-answer' | 'scenario-based' | 'integration'
+  prompt: string
+  detailedScenario?: string // Rich company/situation description for scenario-based questions
+  options?: MCQOption[] // For MCQ questions
+  expectedAnswerLength: 'brief' | 'moderate' | 'comprehensive'
+  relatedSections: string[] // Learning sections this tests
+  difficulty: KnowledgeLevel
+  maxPoints: number
+  evaluationCriteria: string[] // What to look for in answers
+}
+
+export interface ChapterTest {
+  id: string
+  chapterId: string
+  title: string
+  estimatedTimeMinutes: number
+  questions: TestQuestion[]
+  totalPoints: number
+  adaptedForUser?: {
+    focusedOnWeakAreas: string[]
+    difficultyAdjustments: string
+  }
+  userResults?: ChapterTestResult
+}
+
+export interface ChapterTestResult {
+  testId: string
+  userId: string
+  completedAt: string
+  answers: TestAnswer[]
+  totalScore: number
+  maxScore: number
+  percentageScore: number
+  timeSpentMinutes: number
+  feedback: TestFeedback
+}
+
+export interface TestAnswer {
+  questionId: string
+  userAnswer: string
+  selectedOptionId?: string // For MCQ questions
+  score: number
+  maxScore: number
+  feedback: string
+  isCorrect?: boolean // For MCQ questions
+}
+
+export interface TestFeedback {
+  overallPerformance: string
+  strengths: string[]
+  areasForImprovement: string[]
+  recommendedActions: string[]
+  masteryLevel: KnowledgeLevel
+}
+
+export interface UserExerciseHistoryItem {
+  sectionTitle: string
+  success: boolean
+  score?: number
+  attempts?: number
+}
+
+// API Request/Response Types for Chapter Testing
+export interface GenerateChapterTestRequest {
+  chapterData: Chapter & {
+    subchapters: (Subchapter & {
+      learningSections: LearningSection[]
+    })[]
+  }
+  userExerciseHistory?: UserExerciseHistoryItem[]
+  assessmentResults?: Array<{
+    skillName: string
+    knowledgeLevel: KnowledgeLevel
+    assessmentScore: number
+  }>
+  goal: string
+}
+
+export interface GenerateChapterTestResponse {
+  test: ChapterTest
+}
+
+export interface EvaluateChapterTestRequest {
+  test: ChapterTest
+  answers: TestAnswer[]
+  timeSpentMinutes: number
+  goal: string
+  userAssessmentResults?: Array<{
+    skillName: string
+    knowledgeLevel: KnowledgeLevel
+    assessmentScore: number
+  }>
+}
+
+export interface EvaluateChapterTestResponse {
+  totalScore: number
+  maxScore: number
+  percentageScore: number
+  timeEfficiency: 'excellent' | 'good' | 'adequate' | 'needs_improvement'
+  answers: Array<{
+    questionId: string
+    score: number
+    maxScore: number
+    isCorrect?: boolean
+    feedback: string
+    strengths: string[]
+    improvements: string[]
+    correctAnswer?: string
+  }>
+  overallFeedback: {
+    overallPerformance: string
+    strengths: string[]
+    areasForImprovement: string[]
+    recommendedActions: string[]
+    masteryLevel: KnowledgeLevel
+    performanceInsights: {
+      bestPerformingAreas: string[]
+      strugglingAreas: string[]
+      frameworkApplication: string
+      conceptualUnderstanding: string
+      practicalApplication: string
+    }
+  }
+  nextSteps: {
+    shouldRetakeTest: boolean
+    suggestedReviewSections: string[]
+    readyForAdvanced: boolean
+    estimatedStudyTime: string
+  }
+  evaluatedAt: string
+  testId: string
+  evaluationVersion: string
 }
 
 export interface LearningSection {
@@ -42,6 +200,8 @@ export interface LearningSection {
   hasExerciseButton: boolean // Whether to show "Generate Exercise" button
   generatedExercise?: Exercise // Exercise generated on-demand
   knowledgeGapMaterial?: string // Material generated for knowledge gaps
+  contentQuality?: ContentQuality // Quality metrics from smart generation
+  personalization?: PersonalizationInfo // Personalization tracking metadata
 }
 
 export interface Exercise {
@@ -71,6 +231,7 @@ export interface Subchapter {
   isCompleted: boolean
   highlightedTexts?: HighlightedText[] // Track highlighted sections
   knowledgeGapMaterial?: string // Material generated for knowledge gaps (quiz level)
+  overallPersonalization?: OverallPersonalizationInfo // Personalization summary for this subchapter
 }
 
 export interface Chapter {
@@ -204,6 +365,7 @@ export interface LearningSectionsEnhancedRequest {
 
 export interface LearningSectionsEnhancedResponse {
   learningSections: LearningSection[]
+  overallPersonalization?: OverallPersonalizationInfo
 }
 
 export interface GenerateSectionExerciseRequest {

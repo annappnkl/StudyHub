@@ -7,6 +7,10 @@ import type {
   PracticeExerciseRefinementResponse,
   PracticeExerciseEvaluationRequest,
   PracticeExerciseEvaluationResponse,
+  GenerateChapterTestRequest,
+  GenerateChapterTestResponse,
+  EvaluateChapterTestRequest,
+  EvaluateChapterTestResponse,
   Exercise,
   ExerciseEvaluationRequest,
   ExerciseEvaluationResponse,
@@ -247,6 +251,43 @@ export async function evaluatePracticeExercise(
   }
 
   return (await res.json()) as PracticeExerciseEvaluationResponse
+}
+
+// Chapter Testing API
+export async function generateChapterTest(
+  payload: GenerateChapterTestRequest,
+): Promise<GenerateChapterTestResponse> {
+  const res = await fetch(`${API_BASE}/api/generate-chapter-test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    const message = await res.text()
+    throw new Error(`Failed to generate chapter test: ${res.status} ${message}`)
+  }
+
+  return (await res.json()) as GenerateChapterTestResponse
+}
+
+export async function evaluateChapterTest(
+  payload: EvaluateChapterTestRequest,
+): Promise<EvaluateChapterTestResponse> {
+  const res = await fetch(`${API_BASE}/api/evaluate-chapter-test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    const message = await res.text()
+    throw new Error(`Failed to evaluate chapter test: ${res.status} ${message}`)
+  }
+
+  return (await res.json()) as EvaluateChapterTestResponse
 }
 
 export interface User {
