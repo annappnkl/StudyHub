@@ -106,48 +106,24 @@ A personalized, AI-powered learning platform that generates comprehensive study 
 6. **Open your browser**:
    Navigate to the URL shown in the frontend terminal (usually `http://localhost:5173`)
 
-### 🎤 Interview Practice Setup (Optional)
+### 💼 Interview Practice Feature
 
-To enable the AI-powered interview practice feature:
+The interview practice feature is now built into the main application and requires no additional setup!
 
-7. **Set up Interview Practice Service**:
-   
-   **Additional Environment Variables** (add to your `.env` file):
-   ```bash
-   # ElevenLabs API (for text-to-speech)
-   ELEVENLABS_API_KEY=your-elevenlabs-api-key
-   ```
+**How to Use Interview Practice**:
+- Navigate to any lecture in HAWK
+- Go to the final "Interview Practice" chapter
+- Click "Case Study Interview Simulation"
+- Complete the structured case interview simulation
 
-8. **Install Python Dependencies**:
-   ```bash
-   # Automatic setup (recommended)
-   npm run setup:interview
-   
-   # OR manual setup
-   cd interviewer
-   pip3 install -r requirements.txt
-   ```
+**Interview Practice Features**:
+- **Complete Case Study**: Detailed Beautify cosmetics case with structured reading time
+- **Structured Interview Flow**: Three phases covering strategy, customer analysis, and quantitative calculations
+- **Real-time Evaluation**: Instant feedback based on business concepts and structured thinking
+- **Mobile-Friendly**: Text-based interface works on all devices
+- **Professional Simulation**: McKinsey-style case interview experience
 
-9. **Start the Interview Service** (in a third terminal):
-   ```bash
-   npm run dev:interview
-   ```
-   
-   The interview service will run on `http://localhost:8001`
-
-10. **Interview Practice Usage**:
-    - Navigate to any lecture in HAWK
-    - Go to the final "Interview Practice" chapter
-    - Click "Case Study Interview Simulation"
-    - Allow microphone permissions when prompted
-    - Practice with the Beautify case study!
-
-**Requirements for Interview Practice**:
-- Python 3.8 or higher
-- OpenAI API key (for GPT-4o-mini + Whisper)
-- ElevenLabs API key (for text-to-speech)
-- Microphone access in browser
-- Modern browser with audio support
+No additional dependencies, API keys, or setup required!
 
 ## Project Structure
 
@@ -164,14 +140,8 @@ HAWK/
 │       ├── ChapterTest.tsx         # Comprehensive chapter testing
 │       ├── InterviewPractice.tsx   # Interview practice interface
 │       └── ...                     # Other React components
-├── interviewer/                    # Interview Practice Service (Python)
-│   ├── server.py                   # FastAPI backend for interviews
-│   ├── requirements.txt            # Python dependencies
-│   ├── transcripts/                # Interview session transcripts
-│   └── README.md                   # Interview service documentation
 ├── scripts/
-│   ├── setup-interview-service.sh  # Interview setup script (Unix)
-│   └── setup-interview-service.bat # Interview setup script (Windows)
+│   └── validate-env.js             # Environment validation script
 ├── .env                            # Environment variables (not committed)
 └── package.json                    # Dependencies and scripts
 ```

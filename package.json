@@ -6,13 +6,11 @@
   "scripts": {
     "dev": "vite",
     "dev:api": "node server/index.js",
-    "dev:interview": "cd interviewer && source venv/bin/activate && python3 server.py",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "validate": "node scripts/validate-env.js",
     "setup:check": "node scripts/validate-env.js",
-    "setup:interview": "bash scripts/setup-interview-service.sh",
     "vercel-build": "npm run build"
   },
   "dependencies": {

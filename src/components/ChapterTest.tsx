@@ -51,6 +51,7 @@ export function ChapterTest({
   const [startTime, setStartTime] = useState<Date | null>(null)
   const [timeElapsed, setTimeElapsed] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false)
 
   // Initialize test generation
   useEffect(() => {
@@ -210,6 +211,19 @@ export function ChapterTest({
 
       onTestComplete(fallbackResult)
     }
+  }
+
+  const handleQuitTest = () => {
+    setShowQuitConfirm(true)
+  }
+
+  const confirmQuitTest = () => {
+    setShowQuitConfirm(false)
+    onClose() // Return to chapter without completing
+  }
+
+  const cancelQuitTest = () => {
+    setShowQuitConfirm(false)
   }
 
   const currentQuestion = test?.questions[currentQuestionIndex]
@@ -388,13 +402,15 @@ export function ChapterTest({
           </div>
           
           <div className="question-navigation">
-            <button 
-              onClick={handlePreviousQuestion}
-              disabled={currentQuestionIndex === 0}
-              className="nav-button prev-button"
-            >
-              ← Previous
-            </button>
+            <div className="nav-left">
+              <button 
+                onClick={handlePreviousQuestion}
+                disabled={currentQuestionIndex === 0}
+                className="nav-button prev-button"
+              >
+                ← Previous
+              </button>
+            </div>
             
             <div className="question-dots">
               {test.questions.map((_, idx) => (
@@ -410,22 +426,33 @@ export function ChapterTest({
               ))}
             </div>
             
-            {currentQuestionIndex === test.questions.length - 1 ? (
-              <button 
-                onClick={handleCompleteTest}
-                className="nav-button complete-button"
-                disabled={answers.length !== test.questions.length}
-              >
-                Complete Test
-              </button>
-            ) : (
-              <button 
-                onClick={handleNextQuestion}
-                className="nav-button next-button"
-              >
-                Next →
-              </button>
-            )}
+            <div className="nav-right">
+              {currentQuestionIndex === test.questions.length - 1 ? (
+                <button 
+                  onClick={handleCompleteTest}
+                  className="nav-button complete-button"
+                  disabled={answers.length !== test.questions.length}
+                >
+                  Complete Test
+                </button>
+              ) : (
+                <button 
+                  onClick={handleNextQuestion}
+                  className="nav-button next-button"
+                >
+                  Next →
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="test-controls">
+            <button 
+              onClick={handleQuitTest}
+              className="quit-test-button"
+            >
+              Quit Test
+            </button>
           </div>
         </div>
       </div>
@@ -447,6 +474,34 @@ export function ChapterTest({
           <button onClick={onClose} className="close-test-button">
             Return to Chapter
           </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Quit confirmation dialog
+  if (showQuitConfirm) {
+    return (
+      <div className="chapter-test-container">
+        <div className="quit-confirm-dialog">
+          <div className="quit-confirm-content">
+            <h3>⚠️ Quit Test?</h3>
+            <p>Are you sure you want to quit this test? Your progress will be lost and you'll need to start over if you want to try again.</p>
+            <div className="quit-confirm-actions">
+              <button 
+                onClick={cancelQuitTest} 
+                className="cancel-quit-button"
+              >
+                Continue Test
+              </button>
+              <button 
+                onClick={confirmQuitTest} 
+                className="confirm-quit-button"
+              >
+                Yes, Quit Test
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     )
