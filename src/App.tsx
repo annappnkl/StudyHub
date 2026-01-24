@@ -600,10 +600,11 @@ function App() {
   }, [appState])
 
   // Re-check auth when returning from OAuth (e.g., after redirect)
-  // Only run when on login/access-code screen, not when already authenticated
+  // Only run when on login/access-code screen, not when already authenticated or in assessment
   useEffect(() => {
-    // Early return - don't run if already authenticated or still loading
-    if (appState === 'app' || appState === 'loading') {
+    // Early return - don't run if already authenticated, still loading, or in assessment flow
+    if (appState === 'app' || appState === 'loading' || appState === 'assessment' || appState === 'assessment-results') {
+      console.log('🔒 Skipping auth recheck for state:', appState)
       return
     }
 
