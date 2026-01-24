@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 // TypeScript declarations for Web Speech API
 interface SpeechRecognitionEvent extends Event {
   readonly results: SpeechRecognitionResultList
+  readonly resultIndex: number
 }
 
 interface SpeechRecognitionErrorEvent extends Event {
@@ -17,8 +18,27 @@ interface SpeechRecognition extends EventTarget {
   onresult: ((event: SpeechRecognitionEvent) => void) | null
   onerror: ((event: SpeechRecognitionErrorEvent) => void) | null
   onend: (() => void) | null
+  onstart: (() => void) | null
   start(): void
   stop(): void
+}
+
+interface SpeechRecognitionResult {
+  readonly length: number
+  readonly isFinal: boolean
+  item(index: number): SpeechRecognitionAlternative
+  [index: number]: SpeechRecognitionAlternative
+}
+
+interface SpeechRecognitionAlternative {
+  readonly transcript: string
+  readonly confidence: number
+}
+
+interface SpeechRecognitionResultList {
+  readonly length: number
+  item(index: number): SpeechRecognitionResult
+  [index: number]: SpeechRecognitionResult
 }
 
 interface SpeechRecognitionConstructor {
