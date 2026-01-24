@@ -1831,6 +1831,55 @@ CRITICAL EVALUATION PRINCIPLES:
   }
 })
 
+// ElevenLabs Text-to-Speech endpoint
+app.post('/api/text-to-speech', async (req, res) => {
+  try {
+    const { text } = req.body
+    
+    if (!text) {
+      return res.status(400).json({ error: 'Text is required' })
+    }
+
+    if (!process.env.ELEVENLABS_API_KEY) {
+      return res.status(500).json({ error: 'ElevenLabs API key not configured' })
+    }
+
+    // ElevenLabs API call
+    const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM', {
+      method: 'POST',
+      headers: {
+        'Accept': 'audio/mpeg',
+        'Content-Type': 'application/json',
+        'xi-api-key': process.env.ELEVENLABS_API_KEY
+      },
+      body: JSON.stringify({
+        text: text,
+        model_id: 'eleven_monolingual_v1',
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.5
+        }
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`ElevenLabs API error: ${response.status}`)
+    }
+
+    const audioBuffer = await response.arrayBuffer()
+    
+    res.set({
+      'Content-Type': 'audio/mpeg',
+      'Content-Length': audioBuffer.byteLength
+    })
+    
+    res.send(Buffer.from(audioBuffer))
+  } catch (error) {
+    console.error('Text-to-speech error:', error)
+    res.status(500).json({ error: 'Failed to generate speech' })
+  }
+})
+
 app.get('/health', (_req, res) => {
   res.json({ ok: true })
 })

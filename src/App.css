@@ -1782,7 +1782,7 @@ textarea:focus {
 
 /* Interview Practice - New Text-Based Interface */
 .interview-practice {
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95));
+  background: transparent;
   border-radius: 1.5rem;
   padding: 2rem;
   min-height: 600px;
@@ -1793,23 +1793,12 @@ textarea:focus {
   overflow: visible;
 }
 
-.interview-practice::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(45deg, rgba(59, 130, 246, 0.05), rgba(16, 185, 129, 0.05));
-  border-radius: 1.5rem;
-  pointer-events: none;
-}
+/* Removed background overlay to prevent interference with inner elements */
 
 .interview-header {
   text-align: center;
   margin-bottom: 2rem;
   position: relative;
-  z-index: 1;
 }
 
 .interview-header h2 {
@@ -2420,6 +2409,254 @@ textarea:focus {
 
   .question-dots {
     order: -1;
+  }
+}
+
+/* Voice Interview Interface */
+.ai-interviewer-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 1rem;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.ai-avatar {
+  margin-bottom: 1rem;
+  transition: all 0.3s ease;
+}
+
+.ai-avatar.speaking {
+  animation: speaking-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes speaking-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.ai-face {
+  font-size: 3rem;
+  display: block;
+}
+
+.ai-status {
+  color: #60a5fa;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+/* Voice Controls */
+.voice-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 2rem;
+  min-height: 80px;
+}
+
+.voice-record-button {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border: none;
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  animation: pulse-record 2s ease-in-out infinite;
+}
+
+@keyframes pulse-record {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+}
+
+.voice-record-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3);
+}
+
+.voice-stop-button {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+  border: none;
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  animation: recording-pulse 1s ease-in-out infinite;
+}
+
+@keyframes recording-pulse {
+  0%, 100% {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+  }
+  50% {
+    background: linear-gradient(135deg, #b91c1c, #991b1b);
+  }
+}
+
+.ai-speaking-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.pulse-animation {
+  font-size: 2rem;
+  animation: speaking-pulse 0.5s ease-in-out infinite;
+}
+
+/* Conversation History */
+.conversation-history {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.conversation-history h4 {
+  color: #60a5fa;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.conversation-content {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.no-conversation {
+  color: #6b7280;
+  font-style: italic;
+  text-align: center;
+  margin: 2rem 0;
+}
+
+.conversation-entry {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  line-height: 1.6;
+}
+
+.conversation-entry.ai {
+  background: rgba(59, 130, 246, 0.1);
+  border-left: 4px solid #3b82f6;
+}
+
+.conversation-entry.user {
+  background: rgba(34, 197, 94, 0.1);
+  border-left: 4px solid #22c55e;
+  margin-left: 2rem;
+}
+
+.conversation-role {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.conversation-role strong {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.conversation-entry.ai .conversation-role strong {
+  color: #60a5fa;
+}
+
+.conversation-entry.user .conversation-role strong {
+  color: #34d399;
+}
+
+.timestamp {
+  color: #6b7280;
+  font-size: 0.8rem;
+  font-weight: normal;
+}
+
+.conversation-text {
+  color: #d1d5db;
+  line-height: 1.6;
+}
+
+/* Voice Instructions */
+.voice-instructions {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.voice-instructions h5 {
+  color: #34d399;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+}
+
+.voice-instructions ul {
+  color: #d1d5db;
+  line-height: 1.6;
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.voice-instructions li {
+  margin-bottom: 0.5rem;
+}
+
+/* Mobile Voice Interface */
+@media (max-width: 768px) {
+  .ai-interviewer-status {
+    padding: 1rem;
+  }
+  
+  .ai-face {
+    font-size: 2.5rem;
+  }
+  
+  .voice-record-button,
+  .voice-stop-button {
+    font-size: 1rem;
+    padding: 0.75rem 1.5rem;
+  }
+  
+  .conversation-content {
+    max-height: 300px;
+  }
+  
+  .conversation-entry.user {
+    margin-left: 0;
+  }
+  
+  .conversation-role {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
   }
 }
 
@@ -3370,7 +3607,8 @@ textarea:focus {
 
 .assessment-header p {
   font-size: 1.1rem;
-  opacity: 0.9;
+  color: #f1f5f9;
+  opacity: 1.0;
   margin-bottom: 1.5rem;
 }
 
@@ -3454,7 +3692,7 @@ textarea:focus {
 
 .swipe-card:not(.active) {
   transform: scale(0.95) translateY(10px);
-  opacity: 0.7;
+  opacity: 1.0;
 }
 
 .swipe-card.swipe-left {
@@ -3625,7 +3863,8 @@ textarea:focus {
 
 .results-header p {
   font-size: 1.1rem;
-  opacity: 0.9;
+  color: #f1f5f9;
+  opacity: 1.0;
 }
 
 .overall-stats {
@@ -3793,7 +4032,8 @@ textarea:focus {
 
 .note-content p {
   line-height: 1.6;
-  opacity: 0.9;
+  color: #f1f5f9;
+  opacity: 1.0;
 }
 
 .results-actions {

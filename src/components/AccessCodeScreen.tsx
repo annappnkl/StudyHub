@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import './AccessCodeScreen.css'
+import { HawkLogo } from './HawkLogo'
 
 interface AccessCodeScreenProps {
   onCodeVerified: () => void
@@ -44,7 +45,7 @@ export function AccessCodeScreen({ onCodeVerified }: AccessCodeScreenProps) {
     <div className="access-code-screen">
       <div className="access-code-panel">
         <div className="access-code-header">
-          <span className="logo-mark">H</span>
+          <HawkLogo className="logo-mark" size={32} />
           <h1 className="access-code-title">HAWK</h1>
         </div>
         <p className="access-code-subtitle">

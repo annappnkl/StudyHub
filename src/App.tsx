@@ -25,6 +25,7 @@ import { AssessmentScreen } from './components/AssessmentScreen'
 import { AssessmentResults } from './components/AssessmentResults'
 import { ChapterTest } from './components/ChapterTest'
 import { InterviewPractice } from './components/InterviewPractice'
+import { HawkLogo } from './components/HawkLogo'
 import type {
   Chapter,
   Exercise,
@@ -1221,7 +1222,7 @@ function App() {
   return (
       <div className="app-shell">
         <div className="loading-screen">
-          <span className="logo-mark">H</span>
+          <HawkLogo className="logo-mark" size={48} />
           <p>Loading...</p>
         </div>
       </div>
@@ -1246,7 +1247,7 @@ function App() {
       return (
         <div className="app-shell">
           <div className="loading-screen">
-            <span className="logo-mark">H</span>
+            <HawkLogo className="logo-mark" size={48} />
             <p>Loading assessment questions...</p>
           </div>
         </div>
@@ -1691,29 +1692,32 @@ function App() {
                       onClick={() => handleSubchapterClick(sub)}
                       type="button"
                     >
-                      <span className="subchapter-pill-index">{index}</span>
+                      {/* Remove numbering from subchapter tabs */}
                       <span className="subchapter-pill-label">
                         {sub.title}
                       </span>
         </button>
                   )
                 })}
-                {/* Test Myself Tab */}
-                <button
-                  className={`subchapter-pill test-myself-tab ${showChapterTest ? 'subchapter-pill--active' : ''}`}
-                  onClick={() => setShowChapterTest(true)}
-                  type="button"
-                >
-                  <span className="subchapter-pill-index">🎯</span>
-                  <span className="subchapter-pill-label">Test Myself</span>
-                </button>
+                {/* Test Myself Tab - Hide for Interview Practice */}
+                {activeChapter.title !== 'Interview Practice' && (
+                  <button
+                    className={`subchapter-pill test-myself-tab ${showChapterTest ? 'subchapter-pill--active' : ''}`}
+                    onClick={() => setShowChapterTest(true)}
+                    type="button"
+                  >
+                    <span className="subchapter-pill-index">🎯</span>
+                    <span className="subchapter-pill-label">Test Myself</span>
+                  </button>
+                )}
               </div>
 
-              {/* Introduction Section */}
-              <section 
-                className="subchapter-content"
-                onMouseUp={() => handleTextSelection('introduction')}
-              >
+              {/* Introduction Section - Hide for Interview Practice */}
+              {activeChapter.title !== 'Interview Practice' && (
+                <section 
+                  className="subchapter-content"
+                  onMouseUp={() => handleTextSelection('introduction')}
+                >
                 <h3>Learning Overview</h3>
                 <div className="learning-objectives">
                   <TextWithHighlights
@@ -1738,7 +1742,8 @@ function App() {
                     </ul>
                   </div>
                 )}
-              </section>
+                </section>
+              )}
 
               {/* Interview Practice Section */}
               {activeSubchapter.id === 'case-interview-practice' && (
@@ -2186,7 +2191,7 @@ function App() {
     <div className="app-shell">
       <header className="app-header">
         <div className="app-header-left">
-          <span className="logo-mark">H</span>
+          <HawkLogo className="logo-mark" size={28} />
           <span className="app-name">HAWK</span>
         </div>
         <div className="app-header-right">

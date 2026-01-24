@@ -1,4 +1,5 @@
 import './LoginScreen.css'
+import { HawkLogo } from './HawkLogo'
 
 export function LoginScreen() {
   const handleGoogleLogin = () => {
@@ -12,7 +13,7 @@ export function LoginScreen() {
     <div className="login-screen">
       <div className="login-panel">
         <div className="login-header">
-          <span className="logo-mark">H</span>
+          <HawkLogo className="logo-mark" size={32} />
           <h1 className="login-title">Welcome to HAWK</h1>
         </div>
         <p className="login-subtitle">

@@ -76,6 +76,9 @@ A personalized, AI-powered learning platform that generates comprehensive study 
    GOOGLE_CLIENT_ID=your-google-client-id
    GOOGLE_CLIENT_SECRET=your-google-client-secret
    GOOGLE_CALLBACK_URL=http://localhost:8787/api/auth/google/callback
+   
+   # ElevenLabs API (for voice interview practice)
+   ELEVENLABS_API_KEY=your-elevenlabs-api-key
    ```
 
 3. **Set up Google OAuth**:
@@ -118,12 +121,13 @@ The interview practice feature is now built into the main application and requir
 
 **Interview Practice Features**:
 - **Complete Case Study**: Detailed Beautify cosmetics case with structured reading time
-- **Structured Interview Flow**: Three phases covering strategy, customer analysis, and quantitative calculations
-- **Real-time Evaluation**: Instant feedback based on business concepts and structured thinking
-- **Mobile-Friendly**: Text-based interface works on all devices
-- **Professional Simulation**: McKinsey-style case interview experience
+- **Voice-Powered Interview**: Real conversational interview using ElevenLabs AI voice and speech recognition
+- **Interactive Conversation**: Speak your answers and receive voice feedback from the AI interviewer
+- **Real-time Transcription**: Full conversation history with timestamps
+- **Professional Simulation**: McKinsey-style case interview experience with realistic voice interaction
+- **Mobile-Compatible**: Works on desktop and mobile devices with microphone access
 
-No additional dependencies, API keys, or setup required!
+**Requirements**: ElevenLabs API key for voice functionality
 
 ## Project Structure
 
