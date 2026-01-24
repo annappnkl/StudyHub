@@ -35,7 +35,6 @@ import type {
   LearningSection,
   AssessmentQuestion,
   AssessmentResult,
-  ChapterTestResult,
   UserExerciseHistoryItem,
 } from './types'
 
@@ -523,7 +522,6 @@ function App() {
   
   // Chapter Test state
   const [showChapterTest, setShowChapterTest] = useState(false)
-  const [chapterTestResults, setChapterTestResults] = useState<Record<string, ChapterTestResult>>({})
   
   // Loading messages state
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0)
@@ -2316,10 +2314,8 @@ function App() {
             }))
           }
           onTestComplete={(results) => {
-            setChapterTestResults(prev => ({
-              ...prev,
-              [activeChapter.id]: results
-            }))
+            // Test completed - results could be stored or processed here if needed
+            console.log('Chapter test completed:', results)
             setShowChapterTest(false)
           }}
           onGenerateTest={generateChapterTest}
