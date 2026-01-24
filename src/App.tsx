@@ -60,7 +60,8 @@ function createLectureFromPlan(
       const subchapters: Subchapter[] = ch.subchapters.map((s) => ({
       id: s.id,
       title: s.title,
-      content: s.content,
+      content: s.content, // Now contains brief learning objectives instead of full content
+      conceptOutline: s.conceptOutline || [], // List of concepts that will be taught
       learningSections: [], // will be populated lazily when user opens subchapter
       exercises: [], // will be populated lazily when user opens subchapter (on-demand)
       isCompleted: false,
@@ -70,6 +71,7 @@ function createLectureFromPlan(
     return {
       id: ch.id,
       title: ch.title,
+      description: ch.description || '', // Chapter description
       subchapters,
       isUnlocked: true, // All chapters unlocked by default
     }
@@ -81,6 +83,7 @@ function createLectureFromPlan(
     goal: request.goal,
     createdAt: now,
     chapters,
+    conceptMap: plan.conceptMap, // Store the concept coordination map
     currentChapterId: chapters[0]?.id,
     currentSubchapterId: chapters[0]?.subchapters[0]?.id,
   }
@@ -1140,6 +1143,8 @@ function App() {
           goal: currentLecture.goal,
           subchapterTitle: currentSubchapter.title,
           knowledgeLevels,
+          conceptMap: currentLecture.conceptMap, // Pass concept coordination
+          conceptOutline: currentSubchapter.conceptOutline, // Pass this subchapter's assigned concepts
         })
         
         const enhancedSections = response.learningSections
@@ -1690,15 +1695,30 @@ function App() {
                 className="subchapter-content"
                 onMouseUp={() => handleTextSelection('introduction')}
               >
-                <h3>Introduction</h3>
-                <TextWithHighlights
-                  text={activeSubchapter.content}
-                  sectionId="introduction"
-                  highlightedTexts={activeSubchapter.highlightedTexts || []}
-                  onHighlightClick={(text, explanation) => {
-                    setExplanationPopup({ text, explanation })
-                  }}
-                />
+                <h3>Learning Overview</h3>
+                <div className="learning-objectives">
+                  <TextWithHighlights
+                    text={activeSubchapter.content}
+                    sectionId="introduction"
+                    highlightedTexts={activeSubchapter.highlightedTexts || []}
+                    onHighlightClick={(text, explanation) => {
+                      setExplanationPopup({ text, explanation })
+                    }}
+                  />
+                </div>
+                
+                {activeSubchapter.conceptOutline && activeSubchapter.conceptOutline.length > 0 && (
+                  <div className="concept-outline">
+                    <h4>Key Concepts You'll Learn:</h4>
+                    <ul className="concept-list">
+                      {activeSubchapter.conceptOutline.map((concept, index) => (
+                        <li key={index} className="concept-item">
+                          {concept}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </section>
 
               {/* Learning Sections */}

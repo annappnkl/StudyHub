@@ -64,8 +64,9 @@ export interface HighlightedText {
 export interface Subchapter {
   id: string
   title: string
-  content: string // Introduction/overview
-  learningSections: LearningSection[] // Detailed learning materials
+  content: string // Brief learning objectives (1-2 sentences)
+  conceptOutline?: string[]  // List of concepts/frameworks that will be taught
+  learningSections: LearningSection[] // Detailed learning materials (generated lazily)
   exercises: Exercise[] // Quiz section (no explanations shown) - now on-demand
   isCompleted: boolean
   highlightedTexts?: HighlightedText[] // Track highlighted sections
@@ -75,6 +76,7 @@ export interface Subchapter {
 export interface Chapter {
   id: string
   title: string
+  description?: string  // Chapter's focus and learning progression context
   subchapters: Subchapter[]
   isUnlocked: boolean
 }
@@ -85,6 +87,7 @@ export interface Lecture {
   goal: string
   createdAt: string
   chapters: Chapter[]
+  conceptMap?: ConceptMap  // Concept coordination across chapters (prevents duplication)
   currentChapterId?: string
   currentSubchapterId?: string
   assessmentResults?: {
@@ -103,15 +106,23 @@ export interface LectureGenerationRequest {
   materialsSummary?: string
 }
 
+export interface ConceptMap {
+  allConcepts: string[]  // All concepts taught across entire lecture
+  chapterDistribution: Record<string, string[]>  // Which concepts belong to which chapter
+}
+
 export interface StudyPlanGenerationResponse {
   lectureTitle: string
+  conceptMap: ConceptMap
   chapters: {
     id: string
     title: string
+    description: string  // Chapter's focus and how it fits in learning progression
     subchapters: {
       id: string
       title: string
-      content: string
+      conceptOutline: string[]  // List of concepts/frameworks that will be taught
+      content: string  // Brief description of learning objectives (1-2 sentences)
     }[]
   }[]
 }
@@ -187,6 +198,8 @@ export interface LearningSectionsEnhancedRequest {
   subchapterContent: string
   goal: string
   subchapterTitle: string
+  conceptMap?: ConceptMap  // For content coordination
+  conceptOutline?: string[]  // Specific concepts assigned to this subchapter
 }
 
 export interface LearningSectionsEnhancedResponse {

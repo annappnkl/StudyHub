@@ -433,40 +433,79 @@ app.post('/api/plan', async (req, res) => {
 
   try {
     const system =
-      'You are an expert instructional designer. Produce a comprehensive, thorough study plan that fully covers the topic. Generate as many chapters and subchapters as needed to achieve the learning goal—do not limit yourself to a fixed number.'
+      'You are an expert instructional designer. Create a comprehensive, coordinated study plan that organizes concepts logically across chapters without duplication.'
+    
     const user = `
-Create a structured lecture plan that COMPLETELY covers the topic to achieve the goal.
+Create a structured lecture plan that COMPLETELY covers the topic to achieve the goal with intelligent content coordination.
+
 - Topic: ${topic}
 - Goal: ${goal}
 - Materials summary (optional): ${materialsSummary || 'N/A'}
 
-CRITICAL REQUIREMENTS:
-- Generate AS MANY chapters as needed to fully cover all aspects of the topic
-- Each chapter should have AS MANY subchapters as needed to thoroughly teach that chapter's content
-- Do NOT limit yourself to 2 subchapters per chapter or any fixed number
-- Break down the topic comprehensively—if a topic requires 5 chapters with 4-6 subchapters each, generate that
-- Each subchapter should focus on ONE specific concept, method, or aspect
-- The total structure should be sufficient to take a learner from beginner to achieving the stated goal
+CRITICAL REQUIREMENTS FOR CONTENT COORDINATION:
+
+1. **CONCEPT MAPPING**: First, identify ALL key concepts, frameworks, methods, and topics needed to achieve the goal.
+
+2. **INTELLIGENT DISTRIBUTION**: Distribute concepts across chapters logically:
+   - Each concept should appear in EXACTLY ONE chapter where it's most appropriate
+   - If multiple frameworks are needed (e.g., SWOT, Porter's 5 Forces, BCG Matrix), organize them by logical grouping or complexity
+   - Ensure prerequisites are in earlier chapters
+   - Group related concepts together
+
+3. **NO DUPLICATION**: Each framework, method, or concept should only be taught once across the entire lecture
+   - For example, if SWOT analysis is covered in Chapter 2, it should NOT appear in Chapter 4
+   - If profitability frameworks are in Chapter 1, don't repeat them in Chapter 3
+   - Cross-reference concepts when needed, but don't re-teach them
+
+4. **CONCEPT OUTLINES**: Instead of full content, provide concept outlines:
+   - List the 3-5 key concepts/frameworks that will be taught in each subchapter
+   - Include a brief (1-2 sentence) description of what the subchapter will cover
+   - Focus on WHAT will be learned, not HOW it will be taught (detailed content comes later)
+
+5. **LOGICAL PROGRESSION**: Ensure chapters build on each other:
+   - Foundational concepts first
+   - More complex applications later
+   - Each chapter should naturally lead to the next
 
 Return JSON with:
 {
   "lectureTitle": "string",
+  "conceptMap": {
+    "allConcepts": ["list of ALL concepts that will be taught across entire lecture"],
+    "chapterDistribution": {
+      "chapter1": ["concepts assigned to chapter 1"],
+      "chapter2": ["concepts assigned to chapter 2"],
+      // ... etc
+    }
+  },
   "chapters": [
     {
       "id": "string (unique)",
-      "title": "string",
+      "title": "string (clear chapter theme)",
+      "description": "2-3 sentences describing this chapter's focus and how it fits in the overall learning progression",
       "subchapters": [
         {
           "id": "string (unique)",
-          "title": "string (specific, focused topic)",
-          "content": "5-8 sentences that thoroughly teach the subchapter. Include key definitions, core ideas, common pitfalls, and at least one short example or scenario that directly supports the goal."
+          "title": "string (specific concept/method name)",
+          "conceptOutline": [
+            "Concept/framework 1 that will be taught",
+            "Concept/framework 2 that will be taught",
+            "Concept/framework 3 that will be taught"
+          ],
+          "content": "1-2 sentences describing what this subchapter will teach (learning objectives, not the actual teaching content)"
         }
       ]
     }
   ]
 }
 
-Generate a comprehensive plan—use as many chapters and subchapters as necessary to fully cover the topic.
+EXAMPLE for "case study interview prep":
+- Chapter 1: "Foundational Frameworks" might cover SWOT, Porter's 5 Forces
+- Chapter 2: "Quantitative Analysis" might cover profitability trees, market sizing
+- Chapter 3: "Advanced Techniques" might cover competitive analysis, strategic recommendations
+- Each framework appears ONLY in its designated chapter
+
+Generate a comprehensive, well-coordinated plan without concept duplication.
 `
 
     const completion = await openai.chat.completions.create({
@@ -562,7 +601,7 @@ CRITICAL REQUIREMENTS:
 
 // New combined endpoint - replaces learning-sections and learning-sections-enhancement
 app.post('/api/learning-sections-enhanced', async (req, res) => {
-  const { subchapterContent, goal, subchapterTitle, knowledgeLevels } = req.body || {}
+  const { subchapterContent, goal, subchapterTitle, knowledgeLevels, conceptMap, conceptOutline } = req.body || {}
 
   if (!subchapterContent || !goal || !subchapterTitle) {
     return res.status(400).json({ error: 'Missing required fields' })
@@ -584,11 +623,24 @@ PERSONALIZATION INSTRUCTIONS:
 - Ensure content builds appropriately on user's existing knowledge`
       : ''
 
+    const conceptCoordinationContext = conceptMap && conceptOutline 
+      ? `\n\nCONCEPT COORDINATION (CRITICAL):
+This subchapter should ONLY teach these specific concepts: ${JSON.stringify(conceptOutline)}
+
+CONCEPTS TAUGHT IN OTHER CHAPTERS (DO NOT DUPLICATE):
+${Object.entries(conceptMap.chapterDistribution || {})
+  .filter(([chapterId, concepts]) => !concepts.some(c => conceptOutline?.includes(c)))
+  .map(([chapterId, concepts]) => `- ${chapterId}: ${concepts.join(', ')}`)
+  .join('\n')}
+
+STRICT RULE: Only create learning sections for concepts in your assigned conceptOutline. Do not create sections for concepts assigned to other chapters.`
+      : ''
+
     const user = `
 Subchapter Title: ${subchapterTitle}
 Goal: ${goal}
 Introduction/Overview:
-${subchapterContent}${knowledgeContext}
+${subchapterContent}${knowledgeContext}${conceptCoordinationContext}
 
 Analyze the introduction and create learning sections. CRITICAL REQUIREMENTS:
 
