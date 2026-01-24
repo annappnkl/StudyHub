@@ -97,6 +97,87 @@ function getActiveSubchapter(lecture: Lecture | undefined): Subchapter | undefin
   return chapter.subchapters.find((s) => s.id === lecture.currentSubchapterId)
 }
 
+// Generate specific, actionable assessment questions based on content
+function generateSpecificQuestion(chapterTitle: string, subchapters: any[], type: 'practical' | 'knowledge' | 'application' | 'formula'): string {
+  const title = chapterTitle.toLowerCase()
+  const firstSubchapter = subchapters[0]?.title?.toLowerCase() || ''
+  
+  // Business/Consulting specific questions
+  if (title.includes('framework') || title.includes('analysis') || title.includes('business')) {
+    switch (type) {
+      case 'practical':
+        if (title.includes('swot') || firstSubchapter.includes('swot')) return 'Can you perform a SWOT analysis from memory in under 3 minutes?'
+        if (title.includes('porter') || title.includes('forces')) return 'Can you name all 5 forces in Porter\'s Five Forces without looking them up?'
+        if (title.includes('bcg') || title.includes('matrix')) return 'Can you draw and explain the BCG Matrix on a whiteboard?'
+        return `Can you structure a ${title.includes('framework') ? 'framework analysis' : 'business problem'} step-by-step without guidance?`
+      case 'knowledge':
+        return `Do you know the key components of ${chapterTitle} by heart?`
+      case 'application':
+        return `Have you applied ${chapterTitle} to solve real business problems before?`
+      case 'formula':
+        return `Can you recall the main formulas or steps used in ${chapterTitle}?`
+    }
+  }
+  
+  // Math/Finance specific questions
+  if (title.includes('math') || title.includes('calculation') || title.includes('finance') || title.includes('valuation')) {
+    switch (type) {
+      case 'practical':
+        return 'Can you calculate NPV (Net Present Value) from scratch without a calculator?'
+      case 'knowledge':
+        return 'Do you know the difference between NPV, IRR, and ROI by heart?'
+      case 'application':
+        return 'Have you used financial models to make investment decisions?'
+      case 'formula':
+        if (title.includes('npv') || title.includes('valuation')) return 'Can you write the NPV formula from memory?'
+        if (title.includes('irr')) return 'Do you know how to calculate IRR step-by-step?'
+        return 'Can you recall key financial formulas needed for case studies?'
+    }
+  }
+  
+  // Market sizing specific questions
+  if (title.includes('market') || title.includes('sizing') || title.includes('estimation')) {
+    switch (type) {
+      case 'practical':
+        return 'Can you estimate the market size for coffee shops in NYC in under 5 minutes?'
+      case 'knowledge':
+        return 'Do you know the top-down vs. bottom-up approach to market sizing?'
+      case 'application':
+        return 'Have you structured market sizing problems before?'
+      case 'formula':
+        return 'Can you break down market sizing into population × usage rate × price per unit?'
+    }
+  }
+  
+  // Case study specific questions
+  if (title.includes('case') || title.includes('interview') || title.includes('consulting')) {
+    switch (type) {
+      case 'practical':
+        return 'Can you structure a profitability case in the first 2 minutes of an interview?'
+      case 'knowledge':
+        return 'Do you know the MECE principle and how to apply it to case structures?'
+      case 'application':
+        return 'Have you practiced case interviews with frameworks like Profitability Trees?'
+      case 'formula':
+        return 'Can you build a Profitability Tree (Revenue - Costs) from memory?'
+    }
+  }
+  
+  // Generic fallback questions
+  switch (type) {
+    case 'practical':
+      return `Can you apply ${chapterTitle} concepts in a real-world scenario without guidance?`
+    case 'knowledge':
+      return `Do you understand the core principles behind ${chapterTitle}?`
+    case 'application':
+      return `Have you used ${chapterTitle} techniques in practice before?`
+    case 'formula':
+      return `Can you recall the key methods or formulas related to ${chapterTitle}?`
+    default:
+      return `Are you familiar with ${chapterTitle}?`
+  }
+}
+
 interface ExerciseState {
   exerciseId: string
   userAnswer: string
@@ -511,6 +592,22 @@ function App() {
   const [assessmentQuestions, setAssessmentQuestions] = useState<AssessmentQuestion[]>([])
   const [assessmentResults, setAssessmentResults] = useState<AssessmentResult[]>([])
   const [pendingLectureForm, setPendingLectureForm] = useState<LectureFormState | null>(null)
+  
+  // Loading messages state
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0)
+  
+  const loadingMessages = [
+    "Generating lecture...",
+    "Tickling the backend...",
+    "Scratching the database...",
+    "3D modelling your coach...",
+    "Brewing some knowledge...",
+    "Compiling your brilliance...",
+    "Debugging your potential...",
+    "Optimizing brain cells...",
+    "Mining educational gold...",
+    "Architecting your success..."
+  ]
 
   const activeLecture: Lecture | undefined = useMemo(
     () => (activeLectureId ? lectures[activeLectureId] : undefined),
@@ -651,6 +748,25 @@ function App() {
       }
     }
   }, [appState])
+
+  // Cycle through loading messages when generating
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null
+    
+    if (generationStage === 'generating') {
+      interval = setInterval(() => {
+        setLoadingMessageIndex((prev) => (prev + 1) % loadingMessages.length)
+      }, 2000) // Change message every 2 seconds
+    } else {
+      setLoadingMessageIndex(0) // Reset to first message when not generating
+    }
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval)
+      }
+    }
+  }, [generationStage, loadingMessages.length])
 
   // Auto-save lectures when they change
   useEffect(() => {
@@ -1259,40 +1375,51 @@ function App() {
       // Step 2: Generate assessment questions based on the lecture content
       console.log('Step 2: Generating assessment based on lecture content...')
 
-      // TEMPORARY: Using test questions until backend is fixed
-      const testQuestions: AssessmentQuestion[] = [
-        {
-          id: 'q1',
-          skillId: 'skill1',
-          skillName: plan.chapters[0]?.title || 'Core Concept',
-          category: 'Fundamental Knowledge',
-          question: `Do you already know the basics of ${plan.chapters[0]?.title || 'this topic'}?`
-        },
-        {
-          id: 'q2', 
-          skillId: 'skill1',
-          skillName: plan.chapters[0]?.title || 'Core Concept',
-          category: 'Fundamental Knowledge',
-          question: `Are you familiar with key concepts in ${payload.topic}?`
-        },
-        {
-          id: 'q3',
-          skillId: 'skill2', 
-          skillName: plan.chapters[1]?.title || 'Advanced Topics',
-          category: 'Applied Knowledge',
-          question: `Can you apply ${plan.chapters[1]?.title || 'these concepts'} in practice?`
-        },
-        {
-          id: 'q4',
-          skillId: 'skill2',
-          skillName: plan.chapters[1]?.title || 'Advanced Topics', 
-          category: 'Applied Knowledge',
-          question: `Do you have experience with advanced aspects of ${payload.topic}?`
-        }
-      ]
+      // Generate specific, actionable assessment questions based on lecture content
+      const specificQuestions: AssessmentQuestion[] = []
+      
+      // Generate 4 specific questions per chapter, focusing on practical skills
+      plan.chapters.forEach((chapter, chapterIndex) => {
+        const skillId = `skill-${chapterIndex + 1}`
+        const baseQuestions = [
+          {
+            id: `${skillId}-q1`,
+            skillId,
+            skillName: chapter.title,
+            category: chapterIndex === 0 ? 'Foundational' : 'Applied',
+            question: generateSpecificQuestion(chapter.title, chapter.subchapters, 'practical')
+          },
+          {
+            id: `${skillId}-q2`,
+            skillId,
+            skillName: chapter.title,
+            category: chapterIndex === 0 ? 'Foundational' : 'Applied',
+            question: generateSpecificQuestion(chapter.title, chapter.subchapters, 'knowledge')
+          },
+          {
+            id: `${skillId}-q3`,
+            skillId,
+            skillName: chapter.title,
+            category: chapterIndex === 0 ? 'Foundational' : 'Applied',
+            question: generateSpecificQuestion(chapter.title, chapter.subchapters, 'application')
+          },
+          {
+            id: `${skillId}-q4`,
+            skillId,
+            skillName: chapter.title,
+            category: chapterIndex === 0 ? 'Foundational' : 'Applied',
+            question: generateSpecificQuestion(chapter.title, chapter.subchapters, 'formula')
+          }
+        ]
+        
+        specificQuestions.push(...baseQuestions)
+      })
+      
+      // If we have fewer than 8 questions (2 chapters), take up to 8 questions
+      const finalQuestions = specificQuestions.slice(0, 8)
 
-      console.log('Setting assessment questions:', testQuestions.length, 'questions')
-      setAssessmentQuestions(testQuestions)
+      console.log('Setting assessment questions:', finalQuestions.length, 'questions')
+      setAssessmentQuestions(finalQuestions)
       console.log('Setting app state to assessment...')
       setAppState('assessment')
       setGenerationStage('idle')
@@ -1559,9 +1686,14 @@ function App() {
               className="primary-button"
               disabled={generationStage === 'generating'}
             >
-              {generationStage === 'generating'
-                ? 'Generating lecture...'
-                : 'Generate lecture roadmap'}
+              {generationStage === 'generating' ? (
+                <span className="loading-spinner-container">
+                  <span className="loading-spinner"></span>
+                  {loadingMessages[loadingMessageIndex]}
+                </span>
+              ) : (
+                'Generate lecture roadmap'
+              )}
             </button>
           </form>
         </div>
