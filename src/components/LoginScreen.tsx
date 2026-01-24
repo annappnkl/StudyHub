@@ -12,7 +12,7 @@ export function LoginScreen() {
     <div className="login-screen">
       <div className="login-panel">
         <div className="login-header">
-          <span className="logo-mark">SH</span>
+          <span className="logo-mark">H</span>
           <h1 className="login-title">Welcome to HAWK</h1>
         </div>
         <p className="login-subtitle">

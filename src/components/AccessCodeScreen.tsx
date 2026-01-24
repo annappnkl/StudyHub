@@ -44,7 +44,7 @@ export function AccessCodeScreen({ onCodeVerified }: AccessCodeScreenProps) {
     <div className="access-code-screen">
       <div className="access-code-panel">
         <div className="access-code-header">
-          <span className="logo-mark">SH</span>
+          <span className="logo-mark">H</span>
           <h1 className="access-code-title">HAWK</h1>
         </div>
         <p className="access-code-subtitle">

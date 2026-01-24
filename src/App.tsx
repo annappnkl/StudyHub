@@ -1221,7 +1221,7 @@ function App() {
   return (
       <div className="app-shell">
         <div className="loading-screen">
-          <span className="logo-mark">SH</span>
+          <span className="logo-mark">H</span>
           <p>Loading...</p>
         </div>
       </div>
@@ -1246,7 +1246,7 @@ function App() {
       return (
         <div className="app-shell">
           <div className="loading-screen">
-            <span className="logo-mark">SH</span>
+            <span className="logo-mark">H</span>
             <p>Loading assessment questions...</p>
           </div>
         </div>
