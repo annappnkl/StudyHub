@@ -23,6 +23,11 @@ import type {
   ExplainSelectionResponse,
   ExerciseFollowUpRequest,
   ExerciseFollowUpResponse,
+  GenerateSkillsRequest,
+  GenerateSkillsResponse,
+  GenerateAssessmentRequest,
+  GenerateAssessmentResponse,
+  LearningSectionsEnhancedRequestWithAssessment,
 } from './types'
 
 const API_BASE = import.meta.env.PROD 
@@ -82,7 +87,7 @@ export async function evaluateExercise(
 
 // New combined endpoint
 export async function requestLearningSectionsEnhanced(
-  payload: LearningSectionsEnhancedRequest,
+  payload: LearningSectionsEnhancedRequest | LearningSectionsEnhancedRequestWithAssessment,
 ): Promise<LearningSectionsEnhancedResponse> {
   const res = await fetch(`${API_BASE}/api/learning-sections-enhanced`, {
     method: 'POST',
@@ -310,5 +315,42 @@ export async function deleteLecture(lectureId: string): Promise<void> {
   if (!res.ok) {
     throw new Error('Failed to delete lecture')
   }
+}
+
+// Assessment API functions
+export async function generateSkills(
+  payload: GenerateSkillsRequest,
+): Promise<GenerateSkillsResponse> {
+  const res = await fetch(`${API_BASE}/api/generate-skills`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    const message = await res.text()
+    throw new Error(`Failed to generate skills: ${res.status} ${message}`)
+  }
+
+  return (await res.json()) as GenerateSkillsResponse
+}
+
+export async function generateAssessment(
+  payload: GenerateAssessmentRequest,
+): Promise<GenerateAssessmentResponse> {
+  const res = await fetch(`${API_BASE}/api/generate-assessment`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    const message = await res.text()
+    throw new Error(`Failed to generate assessment: ${res.status} ${message}`)
+  }
+
+  return (await res.json()) as GenerateAssessmentResponse
 }
 

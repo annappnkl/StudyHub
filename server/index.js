@@ -562,7 +562,7 @@ CRITICAL REQUIREMENTS:
 
 // New combined endpoint - replaces learning-sections and learning-sections-enhancement
 app.post('/api/learning-sections-enhanced', async (req, res) => {
-  const { subchapterContent, goal, subchapterTitle } = req.body || {}
+  const { subchapterContent, goal, subchapterTitle, knowledgeLevels } = req.body || {}
 
   if (!subchapterContent || !goal || !subchapterTitle) {
     return res.status(400).json({ error: 'Missing required fields' })
@@ -570,32 +570,46 @@ app.post('/api/learning-sections-enhanced', async (req, res) => {
 
   try {
     const system =
-      'You are an expert instructional designer. Create accurate, factual learning sections with appropriate formatting. Focus on accuracy over creativity.'
+      'You are an expert instructional designer. Create accurate, factual learning sections with appropriate formatting. Focus on accuracy over creativity and personalize content based on user knowledge levels.'
+    
+    const knowledgeContext = knowledgeLevels && knowledgeLevels.length > 0 
+      ? `\n\nUser Knowledge Assessment:
+${knowledgeLevels.map(kl => `- ${kl.skillName}: ${kl.knowledgeLevel} level (score: ${Math.round(kl.score * 100)}%)`).join('\n')}
+
+PERSONALIZATION INSTRUCTIONS:
+- For skills marked as "beginner": Include more foundational content, detailed explanations, and step-by-step guidance
+- For skills marked as "intermediate": Focus on practical applications and deeper understanding  
+- For skills marked as "advanced": Emphasize advanced applications, edge cases, and nuanced aspects
+- Adjust content depth and exercise complexity based on these knowledge levels
+- Ensure content builds appropriately on user's existing knowledge`
+      : ''
+
     const user = `
 Subchapter Title: ${subchapterTitle}
 Goal: ${goal}
 Introduction/Overview:
-${subchapterContent}
+${subchapterContent}${knowledgeContext}
 
 Analyze the introduction and create learning sections. CRITICAL REQUIREMENTS:
 
 1. EXTRACT ALL CONCEPTS: Identify every key term, concept, method, or technique mentioned. If a term is listed (e.g., "SWOT analysis, Porter's Five Forces, 4Ps"), create separate sections for EACH one.
 
-2. CATEGORIZE each section as: "process", "framework", "method", "definition", "concept", or "comparison"
+2. CATEGORIZE each section as: "process", "framework", "method", "concept", or "comparison"
    - "process": Step-by-step procedures (e.g., SWOT analysis, STAR method)
    - "framework": Structured analytical tools (e.g., Porter's Five Forces, 4Ps)
    - "method": Specific techniques or approaches
-   - "definition": Core concepts or terms - KEEP THESE SHORT (2-4 sentences only)
-   - "concept": Abstract ideas or theories
+   - "concept": Abstract ideas or theories (integrate definitions contextually in explanations)
    - "comparison": Comparing multiple approaches/concepts
+   
+   NOTE: Do NOT create separate "definition" sections. Instead, integrate key term definitions naturally within the explanations of concepts, processes, or frameworks.
 
 3. FORMAT content appropriately:
-   - For "definition": Keep explanation SHORT (2-4 sentences). No process/components needed.
    - For "process"/"framework"/"method": Include "process" array with clear steps
    - For "framework": Include "components" array with {name, description}
    - For "comparison": Include "comparisonPoints" array with {aspect, details}
-   - Always include "explanation" (detailed for complex, short for definitions)
-   - Always include "example" (concrete example)
+   - For "concept": Include comprehensive "explanation" that integrates any necessary definitions naturally
+   - Always include "explanation" (adjust depth based on user's knowledge level in related skills)
+   - Always include "example" (concrete example, with complexity appropriate to user's level)
 
 4. EXERCISE RECOMMENDATION: For each section, determine if it warrants an exercise:
    - "hasExerciseButton": true for complex concepts, methods, frameworks, processes
@@ -616,7 +630,7 @@ Return JSON:
       "title": "string (specific concept/term/method name)",
       "format": "process" | "framework" | "method" | "definition" | "concept" | "comparison",
       "content": {
-        "explanation": "string (2-4 sentences for definitions, 8-15 for complex concepts)",
+        "explanation": "string (8-15 sentences, adjust depth based on user knowledge level)",
         "process": ["step 1", "step 2", ...] (only for process/framework/method),
         "components": [{"name": "string", "description": "string"}] (only for framework),
         "comparisonPoints": [{"aspect": "string", "details": "string"}] (only for comparison),
@@ -629,10 +643,11 @@ Return JSON:
 }
 
 CRITICAL: 
-- Definitions must be SHORT (2-4 sentences)
-- If content lists terms/concepts, create sections for EACH one
+- NO separate definition sections - integrate definitions within concept explanations
+- If content lists terms/concepts, create sections for EACH one but as "concept" format with integrated definitions
 - Only set hasExerciseButton: true for content that warrants practice
 - Keep all content factual and accurate
+- PERSONALIZE content depth based on user's assessed knowledge levels
 - EXCLUDE general world knowledge: Do NOT create sections for overly basic, general knowledge that anyone would know (e.g., "math is a way of calculating numbers", "statistical calculations are a method to analyze data", "reading is a skill", "writing involves putting words on paper"). Only include content that is SPECIFIC to the topic and goal, and requires actual learning/instruction.
 - FILTER OUT: If a section would only contain general knowledge that doesn't add value to the learning goal, exclude it entirely.
 `
@@ -1222,6 +1237,159 @@ Return JSON:
   } catch (err) {
     console.error(err)
     return res.status(500).json({ error: 'Failed to evaluate answer' })
+  }
+})
+
+// New endpoint: Generate skills/topics for assessment
+app.post('/api/generate-skills', async (req, res) => {
+  const { topic, goal } = req.body || {}
+
+  if (!topic || !goal) {
+    return res.status(400).json({ error: 'Missing required fields' })
+  }
+
+  try {
+    const system =
+      'You are an expert educational consultant. Analyze learning goals and identify the key skills and knowledge areas needed to achieve them.'
+
+    const user = `
+Topic: ${topic}
+Learning Goal: ${goal}
+
+Analyze this learning goal and identify the 4-6 most important skills, knowledge areas, or topics that someone needs to master to achieve this goal.
+
+For each skill/topic:
+1. Focus on CORE competencies that are essential for the goal
+2. Make them specific enough to assess but broad enough to be meaningful
+3. Categorize them logically (e.g., "Technical Skills", "Analytical Skills", "Domain Knowledge")
+4. Assign importance levels based on how critical they are for the goal
+
+Return JSON:
+{
+  "skills": [
+    {
+      "id": "string (unique)",
+      "name": "string (clear, specific skill/topic name)",
+      "category": "string (logical grouping like 'Technical Skills', 'Analytical Skills', etc.)",
+      "importance": "high" | "medium" | "low",
+      "description": "string (1-2 sentences explaining why this skill matters for the goal)"
+    }
+  ]
+}
+
+CRITICAL REQUIREMENTS:
+- Generate 4-6 skills maximum (quality over quantity)
+- Each skill should be assessable through 3-4 yes/no questions
+- Focus on skills that directly impact success in achieving the goal
+- Avoid overly basic skills that everyone would know
+- Make skills specific to the domain/topic, not generic
+- Ensure skills cover different aspects of the learning goal
+
+Example for "Learn case interview skills for consulting":
+- Problem structuring frameworks (high importance)
+- Business math and calculations (high importance) 
+- Market sizing techniques (medium importance)
+- Industry knowledge (medium importance)
+`
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      temperature: 0.4, // Balanced for structured thinking
+    })
+
+    const content = completion.choices[0]?.message?.content
+    if (!content) throw new Error('No content from OpenAI')
+
+    const parsed = JSON.parse(content)
+    return res.json(parsed)
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'Failed to generate skills' })
+  }
+})
+
+// New endpoint: Generate assessment questions
+app.post('/api/generate-assessment', async (req, res) => {
+  const { skills, goal } = req.body || {}
+
+  if (!skills || !Array.isArray(skills) || !goal) {
+    return res.status(400).json({ error: 'Missing required fields' })
+  }
+
+  try {
+    const system =
+      'You are an expert assessment designer. Create quick, effective yes/no questions to evaluate someone\'s existing knowledge in specific skill areas.'
+
+    const user = `
+Learning Goal: ${goal}
+Skills to Assess:
+${JSON.stringify(skills, null, 2)}
+
+For each skill, generate exactly 4 assessment questions that can be answered with "Know" or "Don't Know". 
+
+Each question should:
+1. Test specific knowledge within that skill area
+2. Be clear and unambiguous 
+3. Cover different aspects/depths of the skill
+4. Be answerable quickly (Tinder-style assessment)
+5. Help determine if someone is beginner/intermediate/advanced in that skill
+
+Question types to include per skill:
+- 1 basic/foundational question
+- 2 intermediate application questions  
+- 1 advanced/nuanced question
+
+Return JSON:
+{
+  "questions": [
+    {
+      "id": "string (unique)",
+      "skillId": "string (matches skill.id)",
+      "skillName": "string (matches skill.name)",
+      "category": "string (matches skill.category)",
+      "question": "string (clear, specific question that can be answered know/don't know)"
+    }
+  ]
+}
+
+CRITICAL REQUIREMENTS:
+- Generate exactly 4 questions per skill (total: skills.length * 4)
+- Questions should be specific, not generic
+- Avoid questions that are too obvious or too obscure
+- Focus on practical knowledge relevant to the learning goal
+- Each question should help differentiate knowledge levels
+- Keep questions concise but specific enough to be meaningful
+
+Example questions for "Problem structuring frameworks" skill:
+- "Do you know what the MECE principle stands for?"
+- "Can you structure a profitability decline case using a framework?"
+- "Do you know how to adapt frameworks for market entry cases?"
+- "Can you create custom frameworks for unique business problems?"
+`
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      temperature: 0.3, // Lower temperature for consistent, clear questions
+    })
+
+    const content = completion.choices[0]?.message?.content
+    if (!content) throw new Error('No content from OpenAI')
+
+    const parsed = JSON.parse(content)
+    return res.json(parsed)
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'Failed to generate assessment questions' })
   }
 })
 

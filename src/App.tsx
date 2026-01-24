@@ -13,10 +13,14 @@ import {
   saveLecture,
   loadLectures,
   deleteLecture as apiDeleteLecture,
+  generateSkills,
+  generateAssessment,
   type User,
 } from './api'
 import { AccessCodeScreen } from './components/AccessCodeScreen'
 import { LoginScreen } from './components/LoginScreen'
+import { AssessmentScreen } from './components/AssessmentScreen'
+import { AssessmentResults } from './components/AssessmentResults'
 import type {
   Chapter,
   Exercise,
@@ -26,6 +30,8 @@ import type {
   Subchapter,
   HighlightedText,
   LearningSection,
+  AssessmentQuestion,
+  AssessmentResult,
 } from './types'
 
 type LectureMap = Record<string, Lecture>
@@ -94,7 +100,7 @@ interface ExerciseState {
   isLoading?: boolean
 }
 
-type AppState = 'access-code' | 'login' | 'loading' | 'app'
+type AppState = 'access-code' | 'login' | 'loading' | 'app' | 'assessment' | 'assessment-results'
 
 // Component to render text with highlighted sections
 function TextWithHighlights({
@@ -493,6 +499,11 @@ function App() {
     lectureTitle: string
   } | null>(null)
   const [quizExpanded, setQuizExpanded] = useState<Record<string, boolean>>({})
+  
+  // Assessment state
+  const [assessmentQuestions, setAssessmentQuestions] = useState<AssessmentQuestion[]>([])
+  const [assessmentResults, setAssessmentResults] = useState<AssessmentResult[]>([])
+  const [pendingLectureForm, setPendingLectureForm] = useState<LectureFormState | null>(null)
 
   const activeLecture: Lecture | undefined = useMemo(
     () => (activeLectureId ? lectures[activeLectureId] : undefined),
@@ -646,6 +657,62 @@ function App() {
 
   const handleAccessCodeVerified = () => {
     setAppState('login')
+  }
+
+  const handleAssessmentComplete = (results: AssessmentResult[]) => {
+    setAssessmentResults(results)
+    setAppState('assessment-results')
+  }
+
+  const handleContinueAfterAssessment = async () => {
+    if (!pendingLectureForm) return
+
+    setGenerationStage('generating')
+    setGenerationError(null)
+
+    try {
+      const payload: LectureGenerationRequest = {
+        topic: pendingLectureForm.topic,
+        goal: pendingLectureForm.goal,
+        materialsSummary: pendingLectureForm.materialsSummary || undefined,
+      }
+
+      const plan = await requestStudyPlan(payload)
+      const lecture = createLectureFromPlan(plan, payload)
+
+      // Add assessment results to lecture
+      if (assessmentResults.length > 0) {
+        lecture.assessmentResults = {
+          skills: assessmentResults.map(result => ({
+            name: result.skillName,
+            knowledgeLevel: result.knowledgeLevel,
+            assessmentScore: result.score,
+          })),
+          completedAt: new Date().toISOString(),
+        }
+      }
+
+      setLectures((prev) => {
+        const updated = {
+          ...prev,
+          [lecture.id]: lecture,
+        }
+        // Auto-save the new lecture
+        if (user) {
+          saveLecture(lecture).catch(console.error)
+        }
+        return updated
+      })
+      setActiveLectureId(lecture.id)
+      setGenerationStage('idle')
+      setAppState('app')
+    } catch (err) {
+      console.error('Failed to generate lecture:', err)
+      setGenerationError(
+        err instanceof Error ? err.message : 'Failed to generate lecture',
+      )
+      setGenerationStage('error')
+    }
   }
 
   const handleLogout = async () => {
@@ -991,11 +1058,18 @@ function App() {
       setExerciseError(null)
       
       try {
-        // Use new combined endpoint
+        // Use new combined endpoint with knowledge levels
+        const knowledgeLevels = currentLecture.assessmentResults?.skills.map(skill => ({
+          skillName: skill.name,
+          knowledgeLevel: skill.knowledgeLevel,
+          score: skill.assessmentScore,
+        }))
+
         const response = await requestLearningSectionsEnhanced({
           subchapterContent: currentSubchapter.content,
           goal: currentLecture.goal,
           subchapterTitle: currentSubchapter.title,
+          knowledgeLevels,
         })
         
         const enhancedSections = response.learningSections
@@ -1050,7 +1124,7 @@ function App() {
 
   // Render different screens based on app state
   if (appState === 'loading') {
-    return (
+  return (
       <div className="app-shell">
         <div className="loading-screen">
           <span className="logo-mark">SH</span>
@@ -1068,6 +1142,27 @@ function App() {
     return <LoginScreen />
   }
 
+  if (appState === 'assessment') {
+    return (
+      <AssessmentScreen
+        questions={assessmentQuestions}
+        onComplete={handleAssessmentComplete}
+        topic={pendingLectureForm?.topic || ''}
+      />
+    )
+  }
+
+  if (appState === 'assessment-results') {
+    return (
+      <AssessmentResults
+        results={assessmentResults}
+        topic={pendingLectureForm?.topic || ''}
+        onContinue={handleContinueAfterAssessment}
+      />
+    )
+  }
+
+
   const handleCreateLecture = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.topic.trim() || !form.goal.trim()) return
@@ -1076,31 +1171,35 @@ function App() {
     setGenerationError(null)
 
     try {
-      const payload: LectureGenerationRequest = {
+      // Store form data for after assessment
+      setPendingLectureForm({
         topic: form.topic.trim(),
         goal: form.goal.trim(),
-        materialsSummary: form.materialsSummary.trim() || undefined,
-      }
-
-      const plan = await requestStudyPlan(payload)
-      const lecture = createLectureFromPlan(plan, payload)
-
-      setLectures((prev) => {
-        const updated = {
-          ...prev,
-          [lecture.id]: lecture,
-        }
-        // Auto-save the new lecture
-        if (user) {
-          saveLecture(lecture).catch(console.error)
-        }
-        return updated
+        materialsSummary: form.materialsSummary.trim(),
       })
-      setActiveLectureId(lecture.id)
+      
+      // Generate skills for assessment
+      const skillsResponse = await generateSkills({
+        topic: form.topic.trim(),
+        goal: form.goal.trim(),
+      })
+      
+      // Skills stored for assessment generation
+      
+      // Generate assessment questions
+      const assessmentResponse = await generateAssessment({
+        skills: skillsResponse.skills,
+        goal: form.goal.trim(),
+      })
+      
+      setAssessmentQuestions(assessmentResponse.questions)
+      setAppState('assessment')
       setGenerationStage('idle')
     } catch (err) {
-      console.error(err)
-      setGenerationError('Could not generate lecture. Please try again.')
+      console.error('Failed to generate assessment:', err)
+      setGenerationError(
+        err instanceof Error ? err.message : 'Failed to generate assessment',
+      )
       setGenerationStage('error')
     }
   }
@@ -1428,7 +1527,7 @@ function App() {
               <div className="subchapter-header">
                 <h2>{activeChapter.title}</h2>
                 <p className="subchapter-title">{activeSubchapter.title}</p>
-              </div>
+      </div>
 
               <div className="subchapters-row">
                 {activeChapter.subchapters.map((sub) => {
@@ -1450,7 +1549,7 @@ function App() {
                       <span className="subchapter-pill-label">
                         {sub.title}
                       </span>
-                    </button>
+        </button>
                   )
                 })}
               </div>
@@ -1753,7 +1852,7 @@ function App() {
                             {activeSubchapter.knowledgeGapMaterial && (
                               <div className="gap-material">
                                 <p>{activeSubchapter.knowledgeGapMaterial}</p>
-                              </div>
+      </div>
                             )}
                           </>
                         )}

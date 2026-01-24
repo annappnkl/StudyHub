@@ -1,5 +1,6 @@
 export type ExerciseType = 'open-ended' | 'mcq'
-export type LearningSectionFormat = 'process' | 'definition' | 'comparison' | 'framework' | 'concept' | 'method'
+export type LearningSectionFormat = 'process' | 'comparison' | 'framework' | 'concept' | 'method'
+export type KnowledgeLevel = 'beginner' | 'intermediate' | 'advanced'
 
 export interface MCQOption {
   id: string
@@ -86,6 +87,14 @@ export interface Lecture {
   chapters: Chapter[]
   currentChapterId?: string
   currentSubchapterId?: string
+  assessmentResults?: {
+    skills: Array<{
+      name: string
+      knowledgeLevel: KnowledgeLevel
+      assessmentScore: number // 0-1 based on swipe responses
+    }>
+    completedAt: string
+  }
 }
 
 export interface LectureGenerationRequest {
@@ -225,5 +234,64 @@ export interface ExerciseFollowUpRequest {
 export interface ExerciseFollowUpResponse {
   answer: string
   intent?: 'scenario-extension' | 'factual-explanation'
+}
+
+// Assessment System Interfaces
+export interface Skill {
+  id: string
+  name: string
+  category: string
+  importance: 'high' | 'medium' | 'low'
+  description: string
+}
+
+export interface AssessmentQuestion {
+  id: string
+  skillId: string
+  question: string
+  skillName: string
+  category: string
+}
+
+export interface AssessmentResponse {
+  questionId: string
+  skillId: string
+  knows: boolean // true for "know", false for "don't know"
+}
+
+export interface AssessmentResult {
+  skillId: string
+  skillName: string
+  category: string
+  score: number // 0-1 based on correct responses
+  knowledgeLevel: KnowledgeLevel
+  questionsAnswered: number
+  questionsKnown: number
+}
+
+export interface GenerateSkillsRequest {
+  topic: string
+  goal: string
+}
+
+export interface GenerateSkillsResponse {
+  skills: Skill[]
+}
+
+export interface GenerateAssessmentRequest {
+  skills: Skill[]
+  goal: string
+}
+
+export interface GenerateAssessmentResponse {
+  questions: AssessmentQuestion[]
+}
+
+export interface LearningSectionsEnhancedRequestWithAssessment extends LearningSectionsEnhancedRequest {
+  knowledgeLevels?: Array<{
+    skillName: string
+    knowledgeLevel: KnowledgeLevel
+    score: number
+  }>
 }
 
