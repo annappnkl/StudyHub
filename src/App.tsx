@@ -34,6 +34,13 @@ import type {
   AssessmentResult,
 } from './types'
 
+// Extend Window interface for temporary lecture storage
+declare global {
+  interface Window {
+    tempLecture?: Lecture;
+  }
+}
+
 type LectureMap = Record<string, Lecture>
 
 type GenerationStage = 'idle' | 'generating' | 'error'
@@ -545,13 +552,27 @@ function App() {
               lecturesMap[lecture.id] = lecture
             })
             setLectures(lecturesMap)
-            setAppState('app')
+            
+            // Only set app state to 'app' if we're not already in assessment or assessment-results
+            setAppState(currentState => {
+              if (currentState === 'assessment' || currentState === 'assessment-results') {
+                console.log('🔒 Preserving current app state:', currentState)
+                return currentState
+              }
+              return 'app'
+            })
           } catch (loadErr) {
             console.error('Failed to load lectures:', loadErr)
             if (isMounted) {
-              // Still set app state even if lectures fail to load
+              // Still set app state even if lectures fail to load, but preserve assessment states
               setLectures({})
-              setAppState('app')
+              setAppState(currentState => {
+                if (currentState === 'assessment' || currentState === 'assessment-results') {
+                  console.log('🔒 Preserving current app state:', currentState)
+                  return currentState
+                }
+                return 'app'
+              })
             }
           }
         } else {
@@ -568,12 +589,15 @@ function App() {
       }
     }
     
-    initApp()
+    // Only run if we're in loading state (initial load)
+    if (appState === 'loading') {
+      initApp()
+    }
     
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [appState])
 
   // Re-check auth when returning from OAuth (e.g., after redirect)
   // Only run when on login/access-code screen, not when already authenticated
@@ -672,8 +696,8 @@ function App() {
     setGenerationError(null)
 
     try {
-      // Find the temporarily stored lecture
-      const tempLecture = Object.values(lectures).find(l => l.id.startsWith('temp-'))
+      // Get the temporarily stored lecture
+      const tempLecture = (window as any).tempLecture
       if (!tempLecture) {
         throw new Error('Could not find pre-generated lecture')
       }
@@ -688,21 +712,16 @@ function App() {
             knowledgeLevel: result.knowledgeLevel,
             assessmentScore: result.score,
           })),
-          completedAt: new Date().toISOString(),
+          completedAt: new Date(),
         } : undefined,
       }
 
-      // Remove temp lecture and add final lecture
+      // Add final lecture to main lectures
       setLectures((prev) => {
-        const updated = { ...prev }
-        // Remove temp lecture
-        Object.keys(updated).forEach(id => {
-          if (id.startsWith('temp-')) {
-            delete updated[id]
-          }
-        })
-        // Add final lecture
-        updated[finalLecture.id] = finalLecture
+        const updated = {
+          ...prev,
+          [finalLecture.id]: finalLecture,
+        }
         
         // Auto-save the new lecture
         if (user) {
@@ -710,6 +729,9 @@ function App() {
         }
         return updated
       })
+
+      // Clean up temporary lecture
+      delete (window as any).tempLecture
 
       setActiveLectureId(finalLecture.id)
       setGenerationStage('idle')
@@ -1133,6 +1155,15 @@ function App() {
   const hasLectures = Object.keys(lectures).length > 0
   const isInCreationState = !hasLectures || !activeLecture
 
+  // Debug logging
+  console.log('🔍 RENDER DEBUG:', {
+    appState,
+    hasLectures,
+    activeLectureId,
+    isInCreationState,
+    questionsLength: assessmentQuestions.length
+  })
+
   // Render different screens based on app state
   if (appState === 'loading') {
   return (
@@ -1154,9 +1185,12 @@ function App() {
   }
 
   if (appState === 'assessment') {
-    console.log('Rendering assessment screen with questions:', assessmentQuestions.length)
+    console.log('🎯 ASSESSMENT SCREEN - appState:', appState)
+    console.log('🎯 ASSESSMENT SCREEN - questions:', assessmentQuestions.length)
+    console.log('🎯 ASSESSMENT SCREEN - pendingLectureForm:', pendingLectureForm)
     
     if (assessmentQuestions.length === 0) {
+      console.log('🎯 ASSESSMENT SCREEN - No questions, showing loading...')
       return (
         <div className="app-shell">
           <div className="loading-screen">
@@ -1167,6 +1201,7 @@ function App() {
       )
     }
     
+    console.log('🎯 ASSESSMENT SCREEN - Rendering AssessmentScreen component')
     return (
       <AssessmentScreen
         questions={assessmentQuestions}
@@ -1213,14 +1248,12 @@ function App() {
       const plan = await requestStudyPlan(payload)
       const lecture = createLectureFromPlan(plan, payload)
 
-      // Store the pre-generated lecture temporarily
+      // Store the pre-generated lecture temporarily (don't add to main lectures yet)
       const tempLectureId = `temp-${Date.now()}`
       const tempLecture = { ...lecture, id: tempLectureId }
       
-      setLectures((prev) => ({
-        ...prev,
-        [tempLectureId]: tempLecture,
-      }))
+      // Store temporarily without triggering the main lectures state
+      window.tempLecture = tempLecture
 
       // Step 2: Generate assessment questions based on the lecture content
       console.log('Step 2: Generating assessment based on lecture content...')
@@ -1257,7 +1290,9 @@ function App() {
         }
       ]
 
+      console.log('Setting assessment questions:', testQuestions.length, 'questions')
       setAssessmentQuestions(testQuestions)
+      console.log('Setting app state to assessment...')
       setAppState('assessment')
       setGenerationStage('idle')
 
@@ -1290,6 +1325,7 @@ function App() {
       }
       setGenerationError(errorMessage)
       setGenerationStage('error')
+      setAppState('app') // Ensure we stay on the creation screen when there's an error
     }
   }
 
