@@ -1507,16 +1507,6 @@ function App() {
             ))}
           </select>
         </label>
-        {activeLectureId && (
-          <button
-            type="button"
-            className="delete-lecture-button"
-            onClick={() => handleDeleteLecture(activeLectureId)}
-            title="Delete lecture"
-          >
-            🗑️
-          </button>
-        )}
       </div>
     )
   }
@@ -1637,6 +1627,21 @@ function App() {
               )
             })}
           </div>
+          
+          {/* Delete Lecture Button */}
+          {activeLectureId && (
+            <div className="sidebar-footer">
+              <button
+                type="button"
+                className="sidebar-delete-button"
+                onClick={() => handleDeleteLecture(activeLectureId)}
+                title="Delete current lecture"
+              >
+                <span className="delete-icon">🗑️</span>
+                <span className="delete-label">Delete Lecture</span>
+              </button>
+            </div>
+          )}
         </aside>
 
         <main className="content-panel">
@@ -1680,9 +1685,6 @@ function App() {
                 {activeChapter.subchapters.map((sub) => {
                   const isActive = sub.id === activeSubchapter.id
                   const completed = sub.isCompleted
-                  const index =
-                    activeChapter.subchapters.findIndex((s) => s.id === sub.id) +
-                    1
                   return (
                     <button
                       key={sub.id}

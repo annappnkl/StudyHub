@@ -1,9 +1,34 @@
 import { useState, useRef, useEffect } from 'react'
 
+// TypeScript declarations for Web Speech API
+interface SpeechRecognitionEvent extends Event {
+  readonly results: SpeechRecognitionResultList
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  readonly error: string
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  maxAlternatives: number
+  onresult: ((event: SpeechRecognitionEvent) => void) | null
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null
+  onend: (() => void) | null
+  start(): void
+  stop(): void
+}
+
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognition
+}
+
 declare global {
   interface Window {
-    SpeechRecognition: typeof SpeechRecognition
-    webkitSpeechRecognition: typeof SpeechRecognition
+    SpeechRecognition: SpeechRecognitionConstructor
+    webkitSpeechRecognition: SpeechRecognitionConstructor
   }
 }
 
@@ -186,21 +211,44 @@ Beautify's president and COO engaged McKinsey to help evaluate if training the m
   const handleSubmitResponse = async () => {
     if (!currentResponse.trim()) return
 
-    const currentQuestion = INTERVIEW_QUESTIONS[currentQuestionIndex]
-    const evaluation = evaluateResponse(currentResponse, currentQuestion)
-    
     // Add user response to conversation history
     const userMessage = { role: 'user' as const, text: currentResponse, timestamp: new Date() }
     setConversationHistory(prev => [...prev, userMessage])
     
+    // Process the typed response
+    await processResponse(currentResponse)
+    setCurrentResponse('')
+  }
+
+  const handleVoiceResponse = async () => {
+    try {
+      const transcript = await startVoiceRecording()
+      
+      // Add voice response to conversation
+      const userMessage = { role: 'user' as const, text: transcript, timestamp: new Date() }
+      setConversationHistory(prev => [...prev, userMessage])
+      
+      // Process the voice response directly
+      await processResponse(transcript)
+    } catch (error) {
+      console.error('Voice recording failed:', error)
+      alert('Voice recording failed. Please ensure microphone permissions are enabled.')
+    }
+  }
+
+  const processResponse = async (responseText: string) => {
+    if (!responseText.trim()) return
+
+    const currentQuestion = INTERVIEW_QUESTIONS[currentQuestionIndex]
+    const evaluation = evaluateResponse(responseText, currentQuestion)
+    
     // Store response and feedback
-    const newResponses = [...userResponses, currentResponse]
+    const newResponses = [...userResponses, responseText]
     const newFeedback = [...feedback, evaluation.feedback]
     
     setUserResponses(newResponses)
     setFeedback(newFeedback)
     setScore(prevScore => prevScore + evaluation.score)
-    setCurrentResponse('')
 
     // AI provides feedback via voice
     const aiResponse = `Thank you for your response. ${evaluation.feedback}`
@@ -226,23 +274,6 @@ Beautify's president and COO engaged McKinsey to help evaluate if training the m
       setTimeout(async () => {
         await speakText("That concludes our interview. Thank you for your responses. You can review your performance and try again if you'd like.")
       }, 2000)
-    }
-  }
-
-  const handleVoiceResponse = async () => {
-    try {
-      const transcript = await startVoiceRecording()
-      setCurrentResponse(transcript)
-      
-      // Add voice response to conversation
-      const userMessage = { role: 'user' as const, text: transcript, timestamp: new Date() }
-      setConversationHistory(prev => [...prev, userMessage])
-      
-      // Process the response
-      await handleSubmitResponse()
-    } catch (error) {
-      console.error('Voice recording failed:', error)
-      alert('Voice recording failed. Please ensure microphone permissions are enabled.')
     }
   }
 
@@ -335,13 +366,13 @@ Beautify's president and COO engaged McKinsey to help evaluate if training the m
       speechRecognitionRef.current = recognition
       setIsRecording(true)
 
-      recognition.onresult = (event) => {
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
         const transcript = event.results[0][0].transcript
         resolve(transcript)
         setIsRecording(false)
       }
 
-      recognition.onerror = (event) => {
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.error('Speech recognition error:', event.error)
         reject(new Error(`Speech recognition failed: ${event.error}`))
         setIsRecording(false)
