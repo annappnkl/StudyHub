@@ -169,15 +169,6 @@
   box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
 }
 
-.lecture-selector .label {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #cbd5f5;
-  height: 2.5rem;
-}
 
 .creation-state {
   flex: 1;
@@ -2651,6 +2642,7 @@ textarea:focus {
   border-radius: 0.75rem;
   padding: 1rem;
   margin-top: 1rem;
+  margin-bottom: 2rem;
 }
 
 .voice-instructions h5 {

@@ -1491,22 +1491,19 @@ function App() {
 
     return (
       <div className="lecture-selector">
-        <label className="label">
-          Lecture
-          <select
-            value={activeLectureId ?? 'new'}
-            onChange={(e) =>
-              handleSelectLecture(e.target.value as string | 'new')
-            }
-          >
+        <select
+          value={activeLectureId ?? 'new'}
+          onChange={(e) =>
+            handleSelectLecture(e.target.value as string | 'new')
+          }
+        >
             <option value="new">+ New lecture</option>
             {entries.map((lecture) => (
               <option key={lecture.id} value={lecture.id}>
                 {lecture.title}
               </option>
             ))}
-          </select>
-        </label>
+        </select>
       </div>
     )
   }
@@ -1677,32 +1674,35 @@ function App() {
           {activeChapter && activeSubchapter ? (
             <>
               <div className="subchapter-header">
-                <h2>{activeChapter.title}</h2>
-                <p className="subchapter-title">{activeSubchapter.title}</p>
-      </div>
-
-              <div className="subchapters-row">
-                {activeChapter.subchapters.map((sub) => {
-                  const isActive = sub.id === activeSubchapter.id
-                  const completed = sub.isCompleted
-                  return (
-                    <button
-                      key={sub.id}
-                      className={`subchapter-pill ${
-                        isActive ? 'subchapter-pill--active' : ''
-                      } ${completed ? 'subchapter-pill--completed' : ''}`}
-                      onClick={() => handleSubchapterClick(sub)}
-                      type="button"
-                    >
-                      {/* Remove numbering from subchapter tabs */}
-                      <span className="subchapter-pill-label">
-                        {sub.title}
-                      </span>
-        </button>
-                  )
-                })}
-                {/* Test Myself Tab - Hide for Interview Practice */}
+                <h2>{activeChapter.title === 'Interview Practice' ? 'Case Study Simulation' : activeChapter.title}</h2>
                 {activeChapter.title !== 'Interview Practice' && (
+                  <p className="subchapter-title">{activeSubchapter.title}</p>
+                )}
+              </div>
+
+              {/* Hide subchapter tabs for Interview Practice */}
+              {activeChapter.title !== 'Interview Practice' && (
+                <div className="subchapters-row">
+                  {activeChapter.subchapters.map((sub) => {
+                    const isActive = sub.id === activeSubchapter.id
+                    const completed = sub.isCompleted
+                    return (
+                      <button
+                        key={sub.id}
+                        className={`subchapter-pill ${
+                          isActive ? 'subchapter-pill--active' : ''
+                        } ${completed ? 'subchapter-pill--completed' : ''}`}
+                        onClick={() => handleSubchapterClick(sub)}
+                        type="button"
+                      >
+                        {/* Remove numbering from subchapter tabs */}
+                        <span className="subchapter-pill-label">
+                          {sub.title}
+                        </span>
+                      </button>
+                    )
+                  })}
+                  {/* Test Myself Tab - Hide for Interview Practice */}
                   <button
                     className={`subchapter-pill test-myself-tab ${showChapterTest ? 'subchapter-pill--active' : ''}`}
                     onClick={() => setShowChapterTest(true)}
@@ -1711,8 +1711,8 @@ function App() {
                     <span className="subchapter-pill-index">🎯</span>
                     <span className="subchapter-pill-label">Test Myself</span>
                   </button>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Introduction Section - Hide for Interview Practice */}
               {activeChapter.title !== 'Interview Practice' && (

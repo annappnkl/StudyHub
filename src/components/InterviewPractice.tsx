@@ -155,19 +155,38 @@ Beautify's president and COO engaged McKinsey to help evaluate if training the m
     setScore(0)
     setConversationHistory([])
 
+    try {
+      // Request microphone permissions upfront
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        await navigator.mediaDevices.getUserMedia({ audio: true })
+      }
+    } catch (error) {
+      console.warn('Microphone access denied:', error)
+      // Continue anyway as speech recognition might still work
+    }
+
     // AI introduces the interview with voice
     const introText = "Hello! I'm your AI interviewer. I'll be conducting a case interview with you today using the Beautify case study. Let's begin with our first question."
     const introMessage = { role: 'ai' as const, text: introText, timestamp: new Date() }
     setConversationHistory([introMessage])
     
-    await speakText(introText)
+    // Try to play intro with user interaction fallback
+    try {
+      await speakText(introText)
+    } catch (error) {
+      console.warn('Auto-play blocked, waiting for user interaction:', error)
+    }
 
     // After intro, ask the first question
     setTimeout(async () => {
       const firstQuestion = INTERVIEW_QUESTIONS[0]
       const questionMessage = { role: 'ai' as const, text: firstQuestion.question, timestamp: new Date() }
       setConversationHistory(prev => [...prev, questionMessage])
-      await speakText(firstQuestion.question)
+      try {
+        await speakText(firstQuestion.question)
+      } catch (error) {
+        console.warn('Auto-play blocked for question:', error)
+      }
     }, 3000)
   }
 
@@ -372,12 +391,6 @@ Beautify's president and COO engaged McKinsey to help evaluate if training the m
     })
   }
 
-  const stopVoiceRecording = () => {
-    if (speechRecognitionRef.current) {
-      speechRecognitionRef.current.stop()
-      setIsRecording(false)
-    }
-  }
 
   // Cleanup on unmount
   useEffect(() => {
@@ -526,35 +539,9 @@ Beautify's president and COO engaged McKinsey to help evaluate if training the m
             <div className={`ai-avatar ${isAISpeaking ? 'speaking' : ''}`}>
               <span className="ai-face">🤖</span>
             </div>
-            <div className="ai-status">
-              {isAISpeaking ? '🔊 AI is speaking...' : '👂 AI is listening...'}
-            </div>
-          </div>
-
-          {/* Voice Controls */}
-          <div className="voice-controls">
-            {!isRecording && !isAISpeaking && (
-              <button 
-                onClick={handleVoiceResponse}
-                className="voice-record-button"
-              >
-                🎤 Start Recording Answer
-              </button>
-            )}
-            
-            {isRecording && (
-              <button 
-                onClick={stopVoiceRecording}
-                className="voice-stop-button"
-              >
-                ⏹️ Stop Recording
-              </button>
-            )}
-
             {isAISpeaking && (
-              <div className="ai-speaking-indicator">
-                <div className="pulse-animation">🔊</div>
-                <span>AI is responding...</span>
+              <div className="ai-status">
+                🔊 AI is speaking...
               </div>
             )}
           </div>
@@ -580,7 +567,27 @@ Beautify's president and COO engaged McKinsey to help evaluate if training the m
             </div>
           </div>
 
-          {/* Instructions */}
+          {/* Voice Controls - Now below conversation */}
+          <div className="voice-controls">
+            {!isAISpeaking && (
+              <button 
+                onClick={handleVoiceResponse}
+                className="voice-record-button"
+                disabled={isRecording}
+              >
+                {isRecording ? '🎤 Listening now...' : '🎤 Start Recording Answer'}
+              </button>
+            )}
+
+            {isAISpeaking && (
+              <div className="ai-speaking-indicator">
+                <div className="pulse-animation">🔊</div>
+                <span>AI is responding...</span>
+              </div>
+            )}
+          </div>
+
+          {/* Instructions with bottom spacing */}
           <div className="voice-instructions">
             <h5>💡 Voice Interview Tips:</h5>
             <ul>
