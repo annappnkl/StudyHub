@@ -13,8 +13,8 @@ import {
   saveLecture,
   loadLectures,
   deleteLecture as apiDeleteLecture,
-  // generateSkills,
-  // generateAssessment,
+  generateSkills,
+  generateAssessment,
   type User,
 } from './api'
 import { AccessCodeScreen } from './components/AccessCodeScreen'
@@ -97,86 +97,6 @@ function getActiveSubchapter(lecture: Lecture | undefined): Subchapter | undefin
   return chapter.subchapters.find((s) => s.id === lecture.currentSubchapterId)
 }
 
-// Generate specific, actionable assessment questions based on content
-function generateSpecificQuestion(chapterTitle: string, subchapters: any[], type: 'practical' | 'knowledge' | 'application' | 'formula'): string {
-  const title = chapterTitle.toLowerCase()
-  const firstSubchapter = subchapters[0]?.title?.toLowerCase() || ''
-  
-  // Business/Consulting specific questions
-  if (title.includes('framework') || title.includes('analysis') || title.includes('business')) {
-    switch (type) {
-      case 'practical':
-        if (title.includes('swot') || firstSubchapter.includes('swot')) return 'Can you perform a SWOT analysis from memory in under 3 minutes?'
-        if (title.includes('porter') || title.includes('forces')) return 'Can you name all 5 forces in Porter\'s Five Forces without looking them up?'
-        if (title.includes('bcg') || title.includes('matrix')) return 'Can you draw and explain the BCG Matrix on a whiteboard?'
-        return `Can you structure a ${title.includes('framework') ? 'framework analysis' : 'business problem'} step-by-step without guidance?`
-      case 'knowledge':
-        return `Do you know the key components of ${chapterTitle} by heart?`
-      case 'application':
-        return `Have you applied ${chapterTitle} to solve real business problems before?`
-      case 'formula':
-        return `Can you recall the main formulas or steps used in ${chapterTitle}?`
-    }
-  }
-  
-  // Math/Finance specific questions
-  if (title.includes('math') || title.includes('calculation') || title.includes('finance') || title.includes('valuation')) {
-    switch (type) {
-      case 'practical':
-        return 'Can you calculate NPV (Net Present Value) from scratch without a calculator?'
-      case 'knowledge':
-        return 'Do you know the difference between NPV, IRR, and ROI by heart?'
-      case 'application':
-        return 'Have you used financial models to make investment decisions?'
-      case 'formula':
-        if (title.includes('npv') || title.includes('valuation')) return 'Can you write the NPV formula from memory?'
-        if (title.includes('irr')) return 'Do you know how to calculate IRR step-by-step?'
-        return 'Can you recall key financial formulas needed for case studies?'
-    }
-  }
-  
-  // Market sizing specific questions
-  if (title.includes('market') || title.includes('sizing') || title.includes('estimation')) {
-    switch (type) {
-      case 'practical':
-        return 'Can you estimate the market size for coffee shops in NYC in under 5 minutes?'
-      case 'knowledge':
-        return 'Do you know the top-down vs. bottom-up approach to market sizing?'
-      case 'application':
-        return 'Have you structured market sizing problems before?'
-      case 'formula':
-        return 'Can you break down market sizing into population × usage rate × price per unit?'
-    }
-  }
-  
-  // Case study specific questions
-  if (title.includes('case') || title.includes('interview') || title.includes('consulting')) {
-    switch (type) {
-      case 'practical':
-        return 'Can you structure a profitability case in the first 2 minutes of an interview?'
-      case 'knowledge':
-        return 'Do you know the MECE principle and how to apply it to case structures?'
-      case 'application':
-        return 'Have you practiced case interviews with frameworks like Profitability Trees?'
-      case 'formula':
-        return 'Can you build a Profitability Tree (Revenue - Costs) from memory?'
-    }
-  }
-  
-  // Generic fallback questions
-  switch (type) {
-    case 'practical':
-      return `Can you apply ${chapterTitle} concepts in a real-world scenario without guidance?`
-    case 'knowledge':
-      return `Do you understand the core principles behind ${chapterTitle}?`
-    case 'application':
-      return `Have you used ${chapterTitle} techniques in practice before?`
-    case 'formula':
-      return `Can you recall the key methods or formulas related to ${chapterTitle}?`
-    default:
-      return `Are you familiar with ${chapterTitle}?`
-  }
-}
 
 interface ExerciseState {
   exerciseId: string
@@ -1375,72 +1295,25 @@ function App() {
       // Step 2: Generate assessment questions based on the lecture content
       console.log('Step 2: Generating assessment based on lecture content...')
 
-      // Generate specific, actionable assessment questions based on lecture content
-      const specificQuestions: AssessmentQuestion[] = []
-      
-      // Generate 4 specific questions per chapter, focusing on practical skills
-      plan.chapters.forEach((chapter, chapterIndex) => {
-        const skillId = `skill-${chapterIndex + 1}`
-        const baseQuestions = [
-          {
-            id: `${skillId}-q1`,
-            skillId,
-            skillName: chapter.title,
-            category: chapterIndex === 0 ? 'Foundational' : 'Applied',
-            question: generateSpecificQuestion(chapter.title, chapter.subchapters, 'practical')
-          },
-          {
-            id: `${skillId}-q2`,
-            skillId,
-            skillName: chapter.title,
-            category: chapterIndex === 0 ? 'Foundational' : 'Applied',
-            question: generateSpecificQuestion(chapter.title, chapter.subchapters, 'knowledge')
-          },
-          {
-            id: `${skillId}-q3`,
-            skillId,
-            skillName: chapter.title,
-            category: chapterIndex === 0 ? 'Foundational' : 'Applied',
-            question: generateSpecificQuestion(chapter.title, chapter.subchapters, 'application')
-          },
-          {
-            id: `${skillId}-q4`,
-            skillId,
-            skillName: chapter.title,
-            category: chapterIndex === 0 ? 'Foundational' : 'Applied',
-            question: generateSpecificQuestion(chapter.title, chapter.subchapters, 'formula')
-          }
-        ]
-        
-        specificQuestions.push(...baseQuestions)
-      })
-      
-      // If we have fewer than 8 questions (2 chapters), take up to 8 questions
-      const finalQuestions = specificQuestions.slice(0, 8)
-
-      console.log('Setting assessment questions:', finalQuestions.length, 'questions')
-      setAssessmentQuestions(finalQuestions)
-      console.log('Setting app state to assessment...')
-      setAppState('assessment')
-      setGenerationStage('idle')
-
-      /* TODO: Re-enable when backend works
-      // Generate skills based on lecture content
+      // Generate skills based on the actual generated lecture content
       const skillsResponse = await generateSkills({
         topic: payload.topic,
         goal: payload.goal,
+        lectureContent: plan  // Pass the full plan for content-aware skill generation
       })
 
-      // Generate assessment questions
+      // Generate assessment questions based on the skills and detailed chapter content
       const assessmentResponse = await generateAssessment({
         skills: skillsResponse.skills,
         goal: payload.goal,
+        lectureContent: plan  // Pass chapter/subchapter details for specific questions
       })
-      
+
+      console.log('Setting assessment questions:', assessmentResponse.questions.length, 'questions')
       setAssessmentQuestions(assessmentResponse.questions)
+      console.log('Setting app state to assessment...')
       setAppState('assessment')
       setGenerationStage('idle')
-      */
 
     } catch (err) {
       console.error('Failed to generate lecture:', err)

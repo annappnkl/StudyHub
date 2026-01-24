@@ -243,6 +243,7 @@ export interface Skill {
   category: string
   importance: 'high' | 'medium' | 'low'
   description: string
+  relatedChapter?: string
 }
 
 export interface AssessmentQuestion {
@@ -251,6 +252,7 @@ export interface AssessmentQuestion {
   question: string
   skillName: string
   category: string
+  relatedConcept?: string
 }
 
 export interface AssessmentResponse {
@@ -272,6 +274,7 @@ export interface AssessmentResult {
 export interface GenerateSkillsRequest {
   topic: string
   goal: string
+  lectureContent?: StudyPlanGenerationResponse  // Pass full plan for content-aware skill generation
 }
 
 export interface GenerateSkillsResponse {
@@ -281,6 +284,7 @@ export interface GenerateSkillsResponse {
 export interface GenerateAssessmentRequest {
   skills: Skill[]
   goal: string
+  lectureContent?: StudyPlanGenerationResponse  // Pass full plan for specific, content-aware questions
 }
 
 export interface GenerateAssessmentResponse {

@@ -1242,7 +1242,7 @@ Return JSON:
 
 // New endpoint: Generate skills/topics for assessment
 app.post('/api/generate-skills', async (req, res) => {
-  const { topic, goal } = req.body || {}
+  const { topic, goal, lectureContent } = req.body || {}
 
   if (!topic || !goal) {
     return res.status(400).json({ error: 'Missing required fields' })
@@ -1250,46 +1250,59 @@ app.post('/api/generate-skills', async (req, res) => {
 
   try {
     const system =
-      'You are an expert educational consultant. Analyze learning goals and identify the key skills and knowledge areas needed to achieve them.'
+      'You are an expert educational consultant. Analyze learning goals and the actual lecture content to identify the key skills that need to be assessed.'
+
+    const lectureContext = lectureContent 
+      ? `\n\nGenerated Lecture Structure:
+${lectureContent.chapters.map(ch => 
+  `Chapter: ${ch.title}
+  Subchapters: ${ch.subchapters.map(sub => `- ${sub.title}: ${sub.content.substring(0, 200)}...`).join('\n  ')}`
+).join('\n\n')}`
+      : ''
 
     const user = `
 Topic: ${topic}
-Learning Goal: ${goal}
+Learning Goal: ${goal}${lectureContext}
 
-Analyze this learning goal and identify the 4-6 most important skills, knowledge areas, or topics that someone needs to master to achieve this goal.
+Based on the actual lecture content generated above, identify 4-6 specific skills that need to be assessed. 
+
+Focus on CONCRETE skills that can be tested with specific questions like:
+- "Can you perform a SWOT analysis right now?"
+- "Do you know how to calculate NPV step-by-step?"
+- "Can you structure a market sizing problem in 2 minutes?"
 
 For each skill/topic:
-1. Focus on CORE competencies that are essential for the goal
-2. Make them specific enough to assess but broad enough to be meaningful
-3. Categorize them logically (e.g., "Technical Skills", "Analytical Skills", "Domain Knowledge")
-4. Assign importance levels based on how critical they are for the goal
+1. Make it SPECIFIC to the actual chapters and subchapters shown above
+2. Focus on actionable, testable competencies
+3. Ensure they can be assessed with practical "can you do X?" questions
+4. Base skills on what will actually be taught in the lecture
 
 Return JSON:
 {
   "skills": [
     {
       "id": "string (unique)",
-      "name": "string (clear, specific skill/topic name)",
-      "category": "string (logical grouping like 'Technical Skills', 'Analytical Skills', etc.)",
+      "name": "string (specific skill from the lecture content)",
+      "category": "string (e.g., 'Framework Application', 'Mathematical Skills', 'Analytical Thinking')",
       "importance": "high" | "medium" | "low",
-      "description": "string (1-2 sentences explaining why this skill matters for the goal)"
+      "description": "string (why this specific skill matters for the goal)",
+      "relatedChapter": "string (which chapter this skill relates to)"
     }
   ]
 }
 
 CRITICAL REQUIREMENTS:
-- Generate 4-6 skills maximum (quality over quantity)
-- Each skill should be assessable through 3-4 yes/no questions
-- Focus on skills that directly impact success in achieving the goal
-- Avoid overly basic skills that everyone would know
-- Make skills specific to the domain/topic, not generic
-- Ensure skills cover different aspects of the learning goal
+- Generate 4-6 skills maximum based on actual lecture content
+- Each skill should be assessable through specific, practical questions
+- Focus on skills directly taught in the lecture chapters
+- Avoid generic skills - be specific to the actual content
+- Make skills testable with "Can you..." or "Do you know how to..." questions
+- Connect each skill to specific chapters/subchapters when possible
 
-Example for "Learn case interview skills for consulting":
-- Problem structuring frameworks (high importance)
-- Business math and calculations (high importance) 
-- Market sizing techniques (medium importance)
-- Industry knowledge (medium importance)
+Example for case interview training lecture:
+- SWOT Analysis Execution (if chapter covers SWOT) (high importance)
+- Financial Calculation Methods (if chapter covers business math) (high importance) 
+- Market Sizing Structuring (if chapter covers market sizing) (medium importance)
 `
 
     const completion = await openai.chat.completions.create({
@@ -1315,7 +1328,7 @@ Example for "Learn case interview skills for consulting":
 
 // New endpoint: Generate assessment questions
 app.post('/api/generate-assessment', async (req, res) => {
-  const { skills, goal } = req.body || {}
+  const { skills, goal, lectureContent } = req.body || {}
 
   if (!skills || !Array.isArray(skills) || !goal) {
     return res.status(400).json({ error: 'Missing required fields' })
@@ -1323,53 +1336,68 @@ app.post('/api/generate-assessment', async (req, res) => {
 
   try {
     const system =
-      'You are an expert assessment designer. Create quick, effective yes/no questions to evaluate someone\'s existing knowledge in specific skill areas.'
+      'You are an expert assessment designer. Create specific, actionable questions based on the actual lecture content that test real competencies.'
+
+    const lectureContext = lectureContent 
+      ? `\n\nDetailed Lecture Content:
+${lectureContent.chapters.map(ch => 
+  `Chapter: ${ch.title}
+  ${ch.subchapters.map(sub => `
+  Subchapter: ${sub.title}
+  Content: ${sub.content}`).join('\n')}`
+).join('\n\n')}`
+      : ''
 
     const user = `
 Learning Goal: ${goal}
-Skills to Assess:
-${JSON.stringify(skills, null, 2)}
+Skills to Assess: ${JSON.stringify(skills, null, 2)}${lectureContext}
 
-For each skill, generate exactly 4 assessment questions that can be answered with "Know" or "Don't Know". 
+Using the detailed lecture content above, generate exactly 4 specific, actionable assessment questions per skill.
 
 Each question should:
-1. Test specific knowledge within that skill area
-2. Be clear and unambiguous 
-3. Cover different aspects/depths of the skill
-4. Be answerable quickly (Tinder-style assessment)
-5. Help determine if someone is beginner/intermediate/advanced in that skill
+1. Test SPECIFIC knowledge from the lecture content (not generic knowledge)
+2. Be answerable with "Know" or "Don't Know" 
+3. Focus on practical application ("Can you...?", "Do you know how to...?")
+4. Reference specific frameworks, methods, or concepts from the chapters
 
-Question types to include per skill:
-- 1 basic/foundational question
-- 2 intermediate application questions  
-- 1 advanced/nuanced question
+Question types per skill:
+- 1 foundational: Basic understanding of core concept
+- 2 application: Practical ability to use the skill  
+- 1 advanced: Nuanced or complex application
+
+Examples of good questions:
+- "Can you perform a complete SWOT analysis for a tech startup in 5 minutes?"
+- "Do you know the exact steps to calculate NPV with irregular cash flows?"
+- "Can you structure a market entry case using Porter's Five Forces framework?"
+- "Do you know how to adapt the profitability framework for a declining revenue case?"
 
 Return JSON:
 {
   "questions": [
     {
       "id": "string (unique)",
-      "skillId": "string (matches skill.id)",
+      "skillId": "string (matches skill.id)", 
       "skillName": "string (matches skill.name)",
       "category": "string (matches skill.category)",
-      "question": "string (clear, specific question that can be answered know/don't know)"
+      "question": "string (specific, actionable question based on lecture content)",
+      "relatedConcept": "string (what specific framework/method this tests)"
     }
   ]
 }
 
 CRITICAL REQUIREMENTS:
 - Generate exactly 4 questions per skill (total: skills.length * 4)
-- Questions should be specific, not generic
-- Avoid questions that are too obvious or too obscure
-- Focus on practical knowledge relevant to the learning goal
-- Each question should help differentiate knowledge levels
-- Keep questions concise but specific enough to be meaningful
+- Questions must be specific to the lecture content, not generic
+- Test real competencies that someone would need for the learning goal
+- Focus on actionable skills ("Can you do X?") rather than theoretical knowledge
+- Reference specific concepts, frameworks, or methods from the lecture chapters
+- Each question should help determine actual skill level, not just awareness
 
-Example questions for "Problem structuring frameworks" skill:
-- "Do you know what the MECE principle stands for?"
-- "Can you structure a profitability decline case using a framework?"
-- "Do you know how to adapt frameworks for market entry cases?"
-- "Can you create custom frameworks for unique business problems?"
+Example for SWOT Analysis skill (if covered in lecture):
+- "Do you know what each letter in SWOT stands for?" (foundational)
+- "Can you perform a SWOT analysis for a specific company in under 5 minutes?" (application)
+- "Can you identify which external factors belong in Opportunities vs Threats?" (application)
+- "Do you know how to prioritize SWOT factors by impact and likelihood?" (advanced)
 `
 
     const completion = await openai.chat.completions.create({
