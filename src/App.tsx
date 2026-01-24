@@ -1743,7 +1743,6 @@ function App() {
               {/* Interview Practice Section */}
               {activeSubchapter.id === 'case-interview-practice' && (
                 <InterviewPractice 
-                  chapterId={activeChapter.id}
                   onComplete={() => {
                     console.log('Interview practice completed')
                     // Could mark subchapter as completed or show completion message

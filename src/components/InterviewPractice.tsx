@@ -1,11 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 
 interface InterviewPracticeProps {
-  chapterId: string
   onComplete?: () => void
 }
 
-export function InterviewPractice({ chapterId, onComplete }: InterviewPracticeProps) {
+export function InterviewPractice({ onComplete }: InterviewPracticeProps) {
   const [status, setStatus] = useState<string>('Ready to start your case interview practice')
   const [transcript, setTranscript] = useState<Array<{ role: string; text: string }>>([])
   const [isRecording, setIsRecording] = useState(false)
@@ -16,7 +15,7 @@ export function InterviewPractice({ chapterId, onComplete }: InterviewPracticePr
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // API base URL - will be Python FastAPI service
   const API_BASE = 'http://localhost:8001'
