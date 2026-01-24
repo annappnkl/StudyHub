@@ -59,6 +59,7 @@ ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
 2. **Direct Python execution**:
    ```bash
    cd interviewer
+   source venv/bin/activate
    python3 server.py
    ```
 
@@ -69,28 +70,49 @@ The service will start on `http://localhost:8001`
 1. Navigate to any lecture in HAWK
 2. Go to the final "Interview Practice" chapter
 3. Click on "Case Study Interview Simulation"
-4. The React interface will connect to the Python service automatically
-5. Click "Start Case Interview" to begin
+4. Click "Start Case Interview" to begin
 
-### Interview Flow
+### Complete Interview Flow
 
-1. **Introduction** (5 minutes reading time)
-   - Beautify case study presentation
-   - Background information and client goals
+#### **Phase 1: Case Study Reading (5 minutes)**
+- Detailed Beautify case study is displayed
+- Client goals, situation description, and context
+- 5-minute reading timer (can proceed early with "Ready" button)
+- Time to take notes and understand the case
 
-2. **Qualitative Phase** (5-7 questions)
-   - Strategic questions about the case
-   - Follow-up questions based on your responses
+#### **Phase 2: Voice Interview**
+1. **AI Introduction**
+   - AI interviewer introduces the session
+   - Sets professional tone for the interview
+
+2. **First Question**
+   - AI asks: "What possible factors should Beautify consider when shifting beauty consultants toward virtual social media-beauty advisors?"
+   - Voice question with transcript display
+
+3. **Interactive Discussion** (5-7 back-and-forth exchanges)
+   - User records voice answers (up to 15 seconds each)
+   - AI provides follow-up questions based on responses
+   - Real-time transcription of all interactions
    - Focus on structured thinking and business analysis
 
-3. **Quantitative Phase** (1 main problem)
-   - Financial analysis with given assumptions
-   - Math problem solving (no calculators allowed)
-   - Follow-up sensitivity analysis questions
+4. **Quantitative Analysis**
+   - Financial calculation problem with specific assumptions
+   - Profitability timeline analysis
+   - Step-by-step problem solving (no calculators)
+   - AI guidance through mathematical approach
 
-4. **Closing**
-   - Professional interview conclusion
-   - Performance summary
+5. **Professional Closing**
+   - Interview conclusion
+   - Performance feedback
+   - Session summary
+
+### Technical Features
+
+- **Real-time Voice Interaction**: ElevenLabs text-to-speech + OpenAI Whisper
+- **Live Transcription**: Complete conversation history
+- **Adaptive Questioning**: GPT-4o-mini generates context-aware follow-ups  
+- **Professional Case Study**: Complete Beautify cosmetics case
+- **Mobile-Responsive**: Works on all devices with microphone access
 
 ## API Endpoints
 
